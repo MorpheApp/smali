@@ -51,6 +51,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 public class RollbackTest {
@@ -87,7 +88,7 @@ public class RollbackTest {
             dexPool.internClass(class2);
             dexPool.reset();
             dexPool.writeTo(dataStore);
-            dexFile1 = new DexBackedDexFile(Opcodes.getDefault(), dataStore.getBuffer());
+            dexFile1 = new DexBackedDexFile(Opcodes.getDefault(), ByteBuffer.wrap(dataStore.getBuffer()));
         }
 
         DexBackedDexFile dexFile2;
@@ -96,7 +97,7 @@ public class RollbackTest {
             DexPool dexPool = new DexPool(Opcodes.getDefault());
             dexPool.internClass(class1);
             dexPool.writeTo(dataStore);
-            dexFile2 = new DexBackedDexFile(Opcodes.getDefault(), dataStore.getBuffer());
+            dexFile2 = new DexBackedDexFile(Opcodes.getDefault(), ByteBuffer.wrap(dataStore.getBuffer()));
         }
 
         List<MapItem> mapItems1 = dexFile1.getMapItems();

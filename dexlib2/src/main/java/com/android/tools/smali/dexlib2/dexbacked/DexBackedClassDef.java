@@ -44,7 +44,6 @@ import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReferen
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference;
 import com.android.tools.smali.dexlib2.writer.DexWriter;
 import com.android.tools.smali.util.ChainedIterable;
-import com.android.tools.smali.util.ChainedIterable.ChainedIterator;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

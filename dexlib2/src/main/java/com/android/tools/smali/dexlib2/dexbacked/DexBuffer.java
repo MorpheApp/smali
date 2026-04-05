@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * Copyright 2012, Google LLC
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,27 +38,35 @@ package com.android.tools.smali.dexlib2.dexbacked;
 import com.android.tools.smali.util.ExceptionWithContext;
 
 import javax.annotation.Nonnull;
-import java.util.Arrays;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 public class DexBuffer {
-    @Nonnull final byte[] buf;
-    final int baseOffset;
+    private final ByteBuffer buffer;
+    private final int baseOffset;
 
     public DexBuffer(@Nonnull byte[] buf) {
         this(buf, 0);
     }
     public DexBuffer(@Nonnull byte[] buf, int offset) {
-        this.buf = buf;
+        this(ByteBuffer.wrap(buf), offset);
+    }
+
+    public DexBuffer(@Nonnull ByteBuffer buf) {
+        this(buf, 0);
+    }
+    public DexBuffer(@Nonnull ByteBuffer buf, int offset) {
+        this.buffer = buf.order(ByteOrder.LITTLE_ENDIAN);
         this.baseOffset = offset;
     }
 
     public int readSmallUint(int offset) {
-        byte[] buf = this.buf;
         offset += baseOffset;
-        int result = (buf[offset] & 0xff) |
-                ((buf[offset+1] & 0xff) << 8) |
-                ((buf[offset+2] & 0xff) << 16) |
-                ((buf[offset+3]) << 24);
+        int result = (buffer.get(offset) & 0xff) |
+                ((buffer.get(offset+1) & 0xff) << 8) |
+                ((buffer.get(offset+2) & 0xff) << 16) |
+                ((buffer.get(offset+3)) << 24);
+        //int result = getBuf().getInt(getBaseOffset() + offset);
         if (result < 0) {
             throw new ExceptionWithContext("Encountered small uint that is out of range at offset 0x%x", offset);
         }
@@ -61,12 +74,12 @@ public class DexBuffer {
     }
 
     public int readOptionalUint(int offset) {
-        byte[] buf = this.buf;
         offset += baseOffset;
-        int result = (buf[offset] & 0xff) |
-                ((buf[offset+1] & 0xff) << 8) |
-                ((buf[offset+2] & 0xff) << 16) |
-                ((buf[offset+3]) << 24);
+        int result = (buffer.get(offset) & 0xff) |
+                ((buffer.get(offset+1) & 0xff) << 8) |
+                ((buffer.get(offset+2) & 0xff) << 16) |
+                ((buffer.get(offset+3)) << 24);
+        //int result = getBuf().getInt(getBaseOffset() + offset);
         if (result < -1) {
             throw new ExceptionWithContext("Encountered optional uint that is out of range at offset 0x%x", offset);
         }
@@ -74,40 +87,41 @@ public class DexBuffer {
     }
 
     public int readUshort(int offset) {
-        byte[] buf = this.buf;
         offset += baseOffset;
-        return (buf[offset] & 0xff) |
-                ((buf[offset+1] & 0xff) << 8);
+        return (buffer.get(offset) & 0xff) |
+                ((buffer.get(offset+1) & 0xff) << 8);
+        //return getBuf().getShort(getBaseOffset() + offset);
     }
 
     public int readUbyte(int offset) {
-        return buf[offset + baseOffset] & 0xff;
+        return buffer.get(offset + baseOffset) & 0xff;
+        //return getBuf().get(getBaseOffset() + offset) & 0xff;
     }
 
     public long readLong(int offset) {
-        byte[] buf = this.buf;
         offset += baseOffset;
-        return (buf[offset] & 0xff) |
-                ((buf[offset+1] & 0xff) << 8) |
-                ((buf[offset+2] & 0xff) << 16) |
-                ((buf[offset+3] & 0xffL) << 24) |
-                ((buf[offset+4] & 0xffL) << 32) |
-                ((buf[offset+5] & 0xffL) << 40) |
-                ((buf[offset+6] & 0xffL) << 48) |
-                (((long)buf[offset+7]) << 56);
+        return (buffer.get(offset) & 0xff) |
+                ((buffer.get(offset+1) & 0xff) << 8) |
+                ((buffer.get(offset+2) & 0xff) << 16) |
+                ((buffer.get(offset+3) & 0xffL) << 24) |
+                ((buffer.get(offset+4) & 0xffL) << 32) |
+                ((buffer.get(offset+5) & 0xffL) << 40) |
+                ((buffer.get(offset+6) & 0xffL) << 48) |
+                (((long)buffer.get(offset+7)) << 56);
+        //return getBuf().getLong(getBaseOffset() + offset);
     }
 
     public int readLongAsSmallUint(int offset) {
-        byte[] buf = this.buf;
         offset += baseOffset;
-        long result = (buf[offset] & 0xff) |
-                ((buf[offset+1] & 0xff) << 8) |
-                ((buf[offset+2] & 0xff) << 16) |
-                ((buf[offset+3] & 0xffL) << 24) |
-                ((buf[offset+4] & 0xffL) << 32) |
-                ((buf[offset+5] & 0xffL) << 40) |
-                ((buf[offset+6] & 0xffL) << 48) |
-                (((long)buf[offset+7]) << 56);
+        long result = (buffer.get(offset) & 0xff) |
+                ((buffer.get(offset+1) & 0xff) << 8) |
+                ((buffer.get(offset+2) & 0xff) << 16) |
+                ((buffer.get(offset+3) & 0xffL) << 24) |
+                ((buffer.get(offset+4) & 0xffL) << 32) |
+                ((buffer.get(offset+5) & 0xffL) << 40) |
+                ((buffer.get(offset+6) & 0xffL) << 48) |
+                (((long)buffer.get(offset+7)) << 56);
+        //long result = getBuf().getLong(getBaseOffset() + offset);
         if (result < 0 || result > Integer.MAX_VALUE) {
             throw new ExceptionWithContext("Encountered out-of-range ulong at offset 0x%x", offset);
         }
@@ -115,38 +129,40 @@ public class DexBuffer {
     }
 
     public int readInt(int offset) {
-        byte[] buf = this.buf;
         offset += baseOffset;
-        return (buf[offset] & 0xff) |
-                ((buf[offset+1] & 0xff) << 8) |
-                ((buf[offset+2] & 0xff) << 16) |
-                (buf[offset+3] << 24);
+        return (buffer.get(offset) & 0xff) |
+                ((buffer.get(offset+1) & 0xff) << 8) |
+                ((buffer.get(offset+2) & 0xff) << 16) |
+                (buffer.get(offset+3) << 24);
+        //return getBuf().getInt(getBaseOffset() + offset);
     }
 
     public int readShort(int offset) {
-        byte[] buf = this.buf;
         offset += baseOffset;
-        return (buf[offset] & 0xff) |
-                (buf[offset+1] << 8);
+        return (buffer.get(offset) & 0xff) |
+                (buffer.get(offset+1) << 8);
+        //return getBuf().getShort(getBaseOffset() + offset);
     }
 
     public int readByte(int offset) {
-        return buf[baseOffset + offset];
+        return getBuf().get(getBaseOffset() + offset);
     }
 
     @Nonnull
-    public byte[] readByteRange(int start, int length) {
-        return Arrays.copyOfRange(buf, baseOffset + start, baseOffset + start + length);
+    public ByteBuffer readByteRange(int start, int length) {
+        return getBuf().asReadOnlyBuffer()
+                .position(getBaseOffset() + start)
+                .limit(length);
     }
 
     @Nonnull
     public DexReader<? extends DexBuffer> readerAt(int offset) {
-        return new DexReader<DexBuffer>(this, offset);
+        return new DexReader<>(this, offset);
     }
 
     @Nonnull
-    public byte[] getBuf() {
-        return buf;
+    public ByteBuffer getBuf() {
+        return buffer;
     }
 
     public int getBaseOffset() {

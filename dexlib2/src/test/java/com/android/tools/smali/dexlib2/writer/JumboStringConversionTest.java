@@ -61,6 +61,7 @@ import org.junit.Test;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 public class JumboStringConversionTest {
@@ -97,7 +98,7 @@ public class JumboStringConversionTest {
         MemoryDataStore dexStore = new MemoryDataStore();
         dexBuilder.writeTo(dexStore);
 
-        DexBackedDexFile dexFile = new DexBackedDexFile(Opcodes.getDefault(), dexStore.getBuffer());
+        DexBackedDexFile dexFile = new DexBackedDexFile(Opcodes.getDefault(), ByteBuffer.wrap(dexStore.getBuffer()));
 
         ClassDef classDef = Iterables.getFirst(dexFile.getClasses(), null);
         Assert.assertNotNull(classDef);
@@ -195,7 +196,7 @@ public class JumboStringConversionTest {
         MemoryDataStore dexStore = new MemoryDataStore();
         dexBuilder.writeTo(dexStore);
 
-        DexBackedDexFile dexFile = new DexBackedDexFile(Opcodes.getDefault(), dexStore.getBuffer());
+        DexBackedDexFile dexFile = new DexBackedDexFile(Opcodes.getDefault(), ByteBuffer.wrap(dexStore.getBuffer()));
 
         ClassDef classDef = Iterables.getFirst(dexFile.getClasses(), null);
         Assert.assertNotNull(classDef);

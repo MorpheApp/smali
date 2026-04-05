@@ -127,9 +127,9 @@ public class AccessorTestGenerator {
         ST fileSt = stg.getInstanceOf("file");
         fileSt.add("types", types);
 
-        try (PrintWriter w = new PrintWriter(new BufferedWriter(new FileWriter(args[0])))) {
-            w.print(fileSt.render());
-        }
+        //try (PrintWriter w = new PrintWriter(new BufferedWriter(new FileWriter(args[0])))) {
+        //    w.print(fileSt.render());
+        //}
     }
 }
 

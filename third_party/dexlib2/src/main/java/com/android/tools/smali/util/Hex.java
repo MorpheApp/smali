@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * [The "BSD licence"]
  * Copyright (c) 2010 Ben Gruver (JesusFreke)
  *
@@ -26,6 +31,8 @@
  */
 
 package com.android.tools.smali.util;
+
+import java.nio.ByteBuffer;
 
 /**
  * Utilities for formatting numbers as hexadecimal.
@@ -257,14 +264,14 @@ public final class Hex {
      * header
      * @return non-null; a string of the dump
      */
-    public static String dump(byte[] arr, int offset, int length,
+    public static String dump(ByteBuffer arr, int offset, int length,
                               int outOffset, int bpl, int addressLength) {
         int end = offset + length;
 
         // twos-complement math trick: ((x < 0) || (y < 0)) <=> ((x|y) < 0)
-        if (((offset | length | end) < 0) || (end > arr.length)) {
+        if (((offset | length | end) < 0) || (end > arr.capacity())) {
             throw new IndexOutOfBoundsException("arr.length " +
-                                                arr.length + "; " +
+                                                arr.capacity() + "; " +
                                                 offset + "..!" + end);
         }
 
@@ -294,7 +301,7 @@ public final class Hex {
             } else if ((col & 1) == 0) {
                 sb.append(' ');
             }
-            sb.append(Hex.u1(arr[offset]));
+            sb.append(Hex.u1(arr.get(offset)));
             outOffset++;
             offset++;
             col++;

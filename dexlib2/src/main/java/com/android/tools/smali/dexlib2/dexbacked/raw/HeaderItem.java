@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * Copyright 2013, Google LLC
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,6 +45,7 @@ import com.android.tools.smali.dexlib2.dexbacked.DexBuffer;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.nio.ByteBuffer;
 
 public class HeaderItem {
     public static final int ITEM_SIZE = 0x70;
@@ -101,7 +107,10 @@ public class HeaderItem {
     }
 
     @Nonnull public byte[] getSignature() {
-        return dexFile.getBuffer().readByteRange(SIGNATURE_OFFSET, SIGNATURE_SIZE);
+        ByteBuffer buffer = dexFile.getBuffer().readByteRange(SIGNATURE_OFFSET, SIGNATURE_SIZE);
+        byte[] retval = new byte[SIGNATURE_SIZE];
+        buffer.get(retval);
+        return retval;
     }
 
     public int getMapOffset() {

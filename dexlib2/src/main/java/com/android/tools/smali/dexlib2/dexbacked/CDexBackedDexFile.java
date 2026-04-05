@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * Copyright 2019, Google LLC
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,10 +43,12 @@ import com.android.tools.smali.dexlib2.util.DexUtil;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
 
+// TODO: Make this use proper memory mapping
 public class CDexBackedDexFile extends DexBackedDexFile {
     public CDexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull byte[] buf, int offset, boolean verifyMagic) {
-        super(opcodes, buf, offset, verifyMagic);
+        super(opcodes, ByteBuffer.wrap(buf), offset, verifyMagic);
     }
 
     public CDexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull DexBuffer buf) {
@@ -49,11 +56,11 @@ public class CDexBackedDexFile extends DexBackedDexFile {
     }
 
     public CDexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull byte[] buf, int offset) {
-        super(opcodes, buf, offset);
+        super(opcodes, ByteBuffer.wrap(buf), offset);
     }
 
     public CDexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull byte[] buf) {
-        super(opcodes, buf);
+        super(opcodes, ByteBuffer.wrap(buf));
     }
 
     public static boolean isCdex(byte[] buf, int offset) {

@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * Copyright 2012, Google LLC
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,6 +69,8 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.AbstractList;
 import java.util.List;
 import java.util.Set;
@@ -91,12 +98,24 @@ public class DexBackedDexFile implements DexFile {
     private final int mapOffset;
     private final int hiddenApiRestrictionsOffset;
 
-    protected DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull byte[] buf, int offset, boolean verifyMagic) {
+    public DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull DexBuffer buf) {
+        this(opcodes, buf.getBuf(), buf.getBaseOffset());
+    }
+
+    public DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull ByteBuffer buf, int offset) {
+        this(opcodes, buf, offset, false);
+    }
+
+    public DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull ByteBuffer buf) {
+        this(opcodes, buf, 0, true);
+    }
+
+    protected DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull ByteBuffer buf, int offset, boolean verifyMagic) {
         this(opcodes, buf, offset, verifyMagic, 0);
     }
 
     protected DexBackedDexFile(@Nullable Opcodes opcodes,
-                               @Nonnull byte[] buf,
+                               @Nonnull ByteBuffer buf,
                                int offset,
                                boolean verifyMagic,
                                int header_offset) {
@@ -157,6 +176,12 @@ public class DexBackedDexFile implements DexFile {
         return fileSize;
     }
 
+    private int getVersion(ByteBuffer buf, int offset, boolean verifyMagic) {
+        byte[] header = new byte[44];
+        buf.get(header, offset, header.length);
+        return getVersion(header, 0, verifyMagic);
+    }
+
     protected int getVersion(byte[] buf, int offset, boolean verifyMagic) {
         if (verifyMagic) {
             return DexUtil.verifyDexHeader(buf, offset);
@@ -177,25 +202,13 @@ public class DexBackedDexFile implements DexFile {
         return dataBuffer;
     }
 
-    public DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull DexBuffer buf) {
-        this(opcodes, buf.buf, buf.baseOffset);
-    }
-
-    public DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull byte[] buf, int offset) {
-        this(opcodes, buf, offset, false);
-    }
-
-    public DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull byte[] buf) {
-        this(opcodes, buf, 0, true);
-    }
-
     @Nonnull
     public static DexBackedDexFile fromInputStream(@Nullable Opcodes opcodes, @Nonnull InputStream is)
             throws IOException {
         DexUtil.verifyDexHeader(is);
 
         byte[] buf = InputStreamUtil.toByteArray(is);
-        return new DexBackedDexFile(opcodes, buf, 0, false);
+        return new DexBackedDexFile(opcodes, ByteBuffer.wrap(buf), 0, false);
     }
 
     @Nonnull public Opcodes getOpcodes() {

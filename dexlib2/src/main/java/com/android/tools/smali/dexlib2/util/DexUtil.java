@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * Copyright 2016, Google LLC
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,10 +36,8 @@
 package com.android.tools.smali.dexlib2.util;
 
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile.NotADexFile;
-import com.android.tools.smali.dexlib2.dexbacked.DexBackedOdexFile.NotAnOdexFile;
 import com.android.tools.smali.dexlib2.dexbacked.raw.CdexHeaderItem;
 import com.android.tools.smali.dexlib2.dexbacked.raw.HeaderItem;
-import com.android.tools.smali.dexlib2.dexbacked.raw.OdexHeaderItem;
 import com.android.tools.smali.util.InputStreamUtil;
 
 import javax.annotation.Nonnull;
@@ -142,55 +145,6 @@ public class DexUtil {
         }
 
         return cdexVersion;
-    }
-
-    /**
-     * Reads in the odex header from the given input stream and verifies that it is valid and a supported version
-     *
-     * The inputStream must support mark(), and will be reset to initial position upon exiting the method
-     *
-     * @param inputStream An input stream that is positioned at an odex header
-     * @throws NotAnOdexFile If the file is not an odex file
-     * @throws UnsupportedFile If the odex header is valid, but is an unsupported version
-     */
-    public static void verifyOdexHeader(@Nonnull InputStream inputStream) throws IOException {
-        if (!inputStream.markSupported()) {
-            throw new IllegalArgumentException("InputStream must support mark");
-        }
-        inputStream.mark(8);
-        byte[] partialHeader = new byte[8];
-        try {
-            InputStreamUtil.readFully(inputStream, partialHeader);
-        } catch (EOFException ex) {
-            throw new NotAnOdexFile("File is too short");
-        } finally {
-            inputStream.reset();
-        }
-
-        verifyOdexHeader(partialHeader, 0);
-    }
-
-    /**
-     * Verifies that the odex header is valid and a supported version
-     *
-     * @param buf A byte array containing at least the first 8 bytes of an odex file
-     * @param offset The offset within the array to the odex header
-     * @throws NotAnOdexFile If the file is not an odex file
-     * @throws UnsupportedFile If the odex header is valid, but uses unsupported functionality
-     */
-    public static void verifyOdexHeader(@Nonnull byte[] buf, int offset) {
-        int odexVersion = OdexHeaderItem.getVersion(buf, offset);
-        if (odexVersion == -1) {
-            StringBuilder sb = new StringBuilder("Not a valid odex magic value:");
-            for (int i=0; i<8; i++) {
-                sb.append(String.format(" %02x", buf[i]));
-            }
-            throw new NotAnOdexFile(sb.toString());
-        }
-
-        if (!OdexHeaderItem.isSupportedOdexVersion(odexVersion)) {
-            throw new UnsupportedFile(String.format("Odex version %03d is not supported", odexVersion));
-        }
     }
 
     public static class InvalidFile extends RuntimeException {

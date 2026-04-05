@@ -80,7 +80,6 @@ public class Main extends Command {
         List<JCommander> commandHierarchy = main.getCommandHierarchy();
 
         ExtendedCommands.addExtendedCommand(jc, new DisassembleCommand(commandHierarchy));
-        ExtendedCommands.addExtendedCommand(jc, new DeodexCommand(commandHierarchy));
         ExtendedCommands.addExtendedCommand(jc, new DumpCommand(commandHierarchy));
         ExtendedCommands.addExtendedCommand(jc, new HelpCommand(commandHierarchy));
         ExtendedCommands.addExtendedCommand(jc, new HlepCommand(commandHierarchy));
