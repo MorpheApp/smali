@@ -61,12 +61,7 @@ public class DexBuffer {
     }
 
     public int readSmallUint(int offset) {
-        offset += baseOffset;
-        int result = (buffer.get(offset) & 0xff) |
-                ((buffer.get(offset+1) & 0xff) << 8) |
-                ((buffer.get(offset+2) & 0xff) << 16) |
-                ((buffer.get(offset+3)) << 24);
-        //int result = getBuf().getInt(getBaseOffset() + offset);
+        int result = buffer.getInt(baseOffset + offset);
         if (result < 0) {
             throw new ExceptionWithContext("Encountered small uint that is out of range at offset 0x%x", offset);
         }
@@ -74,12 +69,7 @@ public class DexBuffer {
     }
 
     public int readOptionalUint(int offset) {
-        offset += baseOffset;
-        int result = (buffer.get(offset) & 0xff) |
-                ((buffer.get(offset+1) & 0xff) << 8) |
-                ((buffer.get(offset+2) & 0xff) << 16) |
-                ((buffer.get(offset+3)) << 24);
-        //int result = getBuf().getInt(getBaseOffset() + offset);
+        int result = buffer.getInt(baseOffset + offset);
         if (result < -1) {
             throw new ExceptionWithContext("Encountered optional uint that is out of range at offset 0x%x", offset);
         }
@@ -87,41 +77,19 @@ public class DexBuffer {
     }
 
     public int readUshort(int offset) {
-        offset += baseOffset;
-        return (buffer.get(offset) & 0xff) |
-                ((buffer.get(offset+1) & 0xff) << 8);
-        //return getBuf().getShort(getBaseOffset() + offset);
+        return buffer.getShort(baseOffset + offset) & 0xffff;
     }
 
     public int readUbyte(int offset) {
-        return buffer.get(offset + baseOffset) & 0xff;
-        //return getBuf().get(getBaseOffset() + offset) & 0xff;
+        return buffer.get(baseOffset + offset) & 0xff;
     }
 
     public long readLong(int offset) {
-        offset += baseOffset;
-        return (buffer.get(offset) & 0xff) |
-                ((buffer.get(offset+1) & 0xff) << 8) |
-                ((buffer.get(offset+2) & 0xff) << 16) |
-                ((buffer.get(offset+3) & 0xffL) << 24) |
-                ((buffer.get(offset+4) & 0xffL) << 32) |
-                ((buffer.get(offset+5) & 0xffL) << 40) |
-                ((buffer.get(offset+6) & 0xffL) << 48) |
-                (((long)buffer.get(offset+7)) << 56);
-        //return getBuf().getLong(getBaseOffset() + offset);
+        return buffer.getLong(baseOffset + offset);
     }
 
     public int readLongAsSmallUint(int offset) {
-        offset += baseOffset;
-        long result = (buffer.get(offset) & 0xff) |
-                ((buffer.get(offset+1) & 0xff) << 8) |
-                ((buffer.get(offset+2) & 0xff) << 16) |
-                ((buffer.get(offset+3) & 0xffL) << 24) |
-                ((buffer.get(offset+4) & 0xffL) << 32) |
-                ((buffer.get(offset+5) & 0xffL) << 40) |
-                ((buffer.get(offset+6) & 0xffL) << 48) |
-                (((long)buffer.get(offset+7)) << 56);
-        //long result = getBuf().getLong(getBaseOffset() + offset);
+        long result = buffer.getLong(baseOffset + offset);
         if (result < 0 || result > Integer.MAX_VALUE) {
             throw new ExceptionWithContext("Encountered out-of-range ulong at offset 0x%x", offset);
         }
@@ -129,30 +97,24 @@ public class DexBuffer {
     }
 
     public int readInt(int offset) {
-        offset += baseOffset;
-        return (buffer.get(offset) & 0xff) |
-                ((buffer.get(offset+1) & 0xff) << 8) |
-                ((buffer.get(offset+2) & 0xff) << 16) |
-                (buffer.get(offset+3) << 24);
-        //return getBuf().getInt(getBaseOffset() + offset);
+        return buffer.getInt(baseOffset + offset);
     }
 
     public int readShort(int offset) {
-        offset += baseOffset;
-        return (buffer.get(offset) & 0xff) |
-                (buffer.get(offset+1) << 8);
-        //return getBuf().getShort(getBaseOffset() + offset);
+        return buffer.getShort(baseOffset + offset);
     }
 
     public int readByte(int offset) {
-        return getBuf().get(getBaseOffset() + offset);
+        return buffer.get(baseOffset + offset);
     }
 
     @Nonnull
     public ByteBuffer readByteRange(int start, int length) {
-        return getBuf().asReadOnlyBuffer()
-                .position(getBaseOffset() + start)
-                .limit(length);
+        int pos = baseOffset + start;
+        ByteBuffer slice = buffer.asReadOnlyBuffer().order(buffer.order());
+        slice.position(pos);
+        slice.limit(pos + length);
+        return slice;
     }
 
     @Nonnull
