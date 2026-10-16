@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * Copyright 2012, Google LLC
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,6 +69,9 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.AbstractList;
 import java.util.List;
 import java.util.Set;
@@ -93,25 +101,36 @@ public class DexBackedDexFile implements DexFile {
     private final int headerOffset;
     private final int containerSize;
 
-    protected DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull byte[] buf, int offset,
-                               boolean verifyMagic) {
+    public DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull DexBuffer buf) {
+        this(opcodes, buf.getBuf(), buf.getBaseOffset());
+    }
+
+    public DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull ByteBuffer buf, int offset) {
+        this(opcodes, buf, offset, false);
+    }
+
+    public DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull ByteBuffer buf) {
+        this(opcodes, buf, 0, true);
+    }
+
+    protected DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull ByteBuffer buf, int offset, boolean verifyMagic) {
         this(opcodes, buf, offset, verifyMagic, 0);
     }
 
     protected DexBackedDexFile(@Nullable Opcodes opcodes,
-                               @Nonnull byte[] buf,
+                               @Nonnull ByteBuffer buf,
                                int offset,
                                boolean verifyMagic,
                                int header_offset) {
-        if (offset < 0 || offset > buf.length) {
+        if (offset < 0 || offset > buf.capacity()) {
             throw new DexUtil.InvalidFile(
-                    String.format("Invalid offset %d for buffer of length %d", offset, buf.length));
+                    String.format("Invalid offset %d for buffer of length %d", offset, buf.capacity()));
         }
-        if (header_offset < 0 || buf.length - offset < header_offset) {
+        if (header_offset < 0 || buf.capacity() - offset < header_offset) {
             throw new DexUtil.InvalidFile(
                     String.format(
                             "Invalid header_offset %d for buffer of length %d at offset %d",
-                            header_offset, buf.length, offset));
+                            header_offset, buf.capacity(), offset));
         }
 
         dexBuffer = new DexBuffer(buf, offset);
@@ -126,10 +145,10 @@ public class DexBackedDexFile implements DexFile {
         }
 
         int requiredHeaderSize = (dexVersion >= 41) ? 120 : 112;
-        if (buf.length - offset - header_offset < requiredHeaderSize) {
+        if (buf.capacity() - offset - header_offset < requiredHeaderSize) {
             throw new DexUtil.InvalidFile(String.format(
                     "File is too short to contain a valid dex header (size: %d, required: %d)",
-                    buf.length - offset - header_offset, requiredHeaderSize));
+                    buf.capacity() - offset - header_offset, requiredHeaderSize));
         }
 
         fileSize = dexBuffer.readSmallUint(header_offset + HeaderItem.FILE_SIZE_OFFSET);
@@ -138,10 +157,10 @@ public class DexBackedDexFile implements DexFile {
                     "Invalid file_size %d (smaller than required header size %d)",
                     fileSize, requiredHeaderSize));
         }
-        if (fileSize > buf.length - offset - header_offset) {
+        if (fileSize > buf.capacity() - offset - header_offset) {
             throw new DexUtil.InvalidFile(String.format(
                     "Invalid file_size %d (exceeds remaining buffer length %d)",
-                    fileSize, buf.length - offset - header_offset));
+                    fileSize, buf.capacity() - offset - header_offset));
         }
         stringCount = dexBuffer.readSmallUint(header_offset + HeaderItem.STRING_COUNT_OFFSET);
         stringStartOffset = dexBuffer.readSmallUint(header_offset + HeaderItem.STRING_START_OFFSET);
@@ -169,15 +188,15 @@ public class DexBackedDexFile implements DexFile {
                         "DEX entry (header_offset: %d, file_size: %d) exceeds container_size %d",
                         header_offset, fileSize, containerSize));
             }
-            if (this.containerSize > buf.length - offset) {
+            if (this.containerSize > buf.capacity() - offset) {
                 throw new DexUtil.InvalidFile(String.format(
                         "Invalid container_size %d (exceeds buffer length %d)",
-                        containerSize, buf.length - offset));
+                        containerSize, buf.capacity() - offset));
             }
         } else if (CDexBackedDexFile.isCdex(buf, offset + header_offset)) {
             int dataStart = dexBuffer.readSmallUint(header_offset + HeaderItem.DATA_START_OFFSET);
             int dataSize = dexBuffer.readSmallUint(header_offset + HeaderItem.DATA_SIZE_OFFSET);
-            this.containerSize = Math.min(buf.length - offset, Math.max(this.fileSize, dataStart + dataSize));
+            this.containerSize = Math.min(buf.capacity() - offset, Math.max(this.fileSize, dataStart + dataSize));
         } else {
             this.containerSize = this.fileSize;
         }
@@ -231,6 +250,16 @@ public class DexBackedDexFile implements DexFile {
         return headerOffset + fileSize >= containerSize;
     }
 
+    private int getVersion(ByteBuffer buf, int offset, boolean verifyMagic) {
+        // Read the header with absolute positions, so the shared buffer is not changed.
+        int length = Math.min(44, Math.max(0, buf.capacity() - offset));
+        byte[] header = new byte[length];
+        ByteBuffer duplicate = buf.duplicate();
+        ((Buffer) duplicate).position(offset);
+        duplicate.get(header, 0, length);
+        return getVersion(header, 0, verifyMagic);
+    }
+
     protected int getVersion(byte[] buf, int offset, boolean verifyMagic) {
         if (verifyMagic) {
             return DexUtil.verifyDexHeader(buf, offset);
@@ -251,25 +280,13 @@ public class DexBackedDexFile implements DexFile {
         return dataBuffer;
     }
 
-    public DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull DexBuffer buf) {
-        this(opcodes, buf.buf, buf.baseOffset);
-    }
-
-    public DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull byte[] buf, int offset) {
-        this(opcodes, buf, offset, false);
-    }
-
-    public DexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull byte[] buf) {
-        this(opcodes, buf, 0, true);
-    }
-
     @Nonnull
     public static DexBackedDexFile fromInputStream(@Nullable Opcodes opcodes, @Nonnull InputStream is)
             throws IOException {
         DexUtil.verifyDexHeader(is);
 
         byte[] buf = InputStreamUtil.toByteArray(is);
-        return new DexBackedDexFile(opcodes, buf, 0, false);
+        return new DexBackedDexFile(opcodes, ByteBuffer.wrap(buf), 0, false);
     }
 
     @Nonnull public Opcodes getOpcodes() {

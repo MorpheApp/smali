@@ -52,6 +52,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 public class DexWriterTest {
@@ -76,7 +77,7 @@ public class DexWriterTest {
             throw new RuntimeException(ex);
         }
 
-        DexBackedDexFile dexFile = new DexBackedDexFile(Opcodes.getDefault(), dataStore.getBuffer());
+        DexBackedDexFile dexFile = new DexBackedDexFile(Opcodes.getDefault(), ByteBuffer.wrap(dataStore.getBuffer()));
         ClassDef dbClassDef = Iterables.getFirst(dexFile.getClasses(), null);
         Assert.assertNotNull(dbClassDef);
         Annotation dbAnnotation = Iterables.getFirst(dbClassDef.getAnnotations(), null);
@@ -116,7 +117,7 @@ public class DexWriterTest {
             throw new RuntimeException(ex);
         }
 
-        DexBackedDexFile dexFile = new DexBackedDexFile(Opcodes.getDefault(), dataStore.getBuffer());
+        DexBackedDexFile dexFile = new DexBackedDexFile(Opcodes.getDefault(), ByteBuffer.wrap(dataStore.getBuffer()));
         ClassDef dbClassDef = Iterables.getFirst(dexFile.getClasses(), null);
         Assert.assertNotNull(dbClassDef);
         Annotation dbAnnotation = Iterables.getFirst(dbClassDef.getAnnotations(), null);

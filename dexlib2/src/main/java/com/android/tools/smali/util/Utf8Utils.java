@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * Copyright (C) 2007 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,6 +31,7 @@ package com.android.tools.smali.util;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.nio.ByteBuffer;
 
 /**
  * Constants of type <code>CONSTANT_Utf8_info</code>.
@@ -175,7 +181,7 @@ public final class Utf8Utils {
      * @param utf16Length the number of utf16 characters in the string to decode
      * @return non-null; the converted string
      */
-    public static String utf8BytesWithUtf16LengthToString(@Nonnull byte[] bytes, int start, int utf16Length) {
+    public static String utf8BytesWithUtf16LengthToString(@Nonnull ByteBuffer bytes, int start, int utf16Length) {
         return utf8BytesWithUtf16LengthToString(bytes, start, utf16Length, null);
     }
 
@@ -188,7 +194,7 @@ public final class Utf8Utils {
      * @param readLength If non-null, the first element will contain the number of bytes read after the method exits
      * @return non-null; the converted string
      */
-    public static String utf8BytesWithUtf16LengthToString(@Nonnull byte[] bytes, int start, int utf16Length,
+    public static String utf8BytesWithUtf16LengthToString(@Nonnull ByteBuffer bytes, int start, int utf16Length,
                                                           @Nullable int[] readLength) {
         char[] chars = localBuffer.get();
         if (chars == null || chars.length < utf16Length) {
@@ -199,7 +205,7 @@ public final class Utf8Utils {
 
         int at = 0;
         for (at = start; utf16Length > 0; utf16Length--) {
-            int v0 = bytes[at] & 0xFF;
+            int v0 = bytes.get(at) & 0xFF;
             char out;
             switch (v0 >> 4) {
                 case 0x00: case 0x01: case 0x02: case 0x03:
@@ -215,7 +221,7 @@ public final class Utf8Utils {
                 }
                 case 0x0c: case 0x0d: {
                     // 110XXXXX -- two-byte encoding
-                    int v1 = bytes[at + 1] & 0xFF;
+                    int v1 = bytes.get(at + 1) & 0xFF;
                     if ((v1 & 0xc0) != 0x80) {
                         return throwBadUtf8(v1, at + 1);
                     }
@@ -233,11 +239,11 @@ public final class Utf8Utils {
                 }
                 case 0x0e: {
                     // 1110XXXX -- three-byte encoding
-                    int v1 = bytes[at + 1] & 0xFF;
+                    int v1 = bytes.get(at + 1) & 0xFF;
                     if ((v1 & 0xc0) != 0x80) {
                         return throwBadUtf8(v1, at + 1);
                     }
-                    int v2 = bytes[at + 2] & 0xFF;
+                    int v2 = bytes.get(at + 2) & 0xFF;
                     if ((v2 & 0xc0) != 0x80) {
                         return throwBadUtf8(v2, at + 2);
                     }

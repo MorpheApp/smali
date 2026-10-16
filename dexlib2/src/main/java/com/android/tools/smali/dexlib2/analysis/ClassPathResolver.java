@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * Copyright 2016, Google LLC
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,8 +36,6 @@
 package com.android.tools.smali.dexlib2.analysis;
 
 import com.android.tools.smali.dexlib2.DexFileFactory.UnsupportedFileTypeException;
-import com.android.tools.smali.dexlib2.dexbacked.DexBackedOdexFile;
-import com.android.tools.smali.dexlib2.dexbacked.OatFile;
 import com.android.tools.smali.dexlib2.iface.DexFile;
 import com.android.tools.smali.dexlib2.iface.MultiDexContainer;
 import com.android.tools.smali.dexlib2.iface.MultiDexContainer.DexEntry;
@@ -236,18 +239,6 @@ public class ClassPathResolver {
     @Nonnull
     private static List<String> getDefaultBootClassPath(
             @Nonnull MultiDexContainer.DexEntry<?> dexEntry, int apiLevel) {
-        MultiDexContainer<? extends DexFile> container = dexEntry.getContainer();
-
-        if (container instanceof OatFile) {
-            return bootClassPathForOat((OatFile) container);
-        }
-
-        DexFile dexFile = dexEntry.getDexFile();
-
-        if (dexFile instanceof DexBackedOdexFile) {
-            return ((DexBackedOdexFile)dexFile).getDependencies();
-        }
-
         if (apiLevel <= 8) {
             return Arrays.asList(
                     "/system/framework/core.jar",
@@ -371,15 +362,6 @@ public class ClassPathResolver {
                     "/system/framework/ims-common.jar",
                     "/system/framework/apache-xml.jar",
                     "/system/framework/org.apache.http.legacy.boot.jar");
-        }
-    }
-
-    private static List<String> bootClassPathForOat(@Nonnull OatFile oatFile) {
-        List<String> bcp = oatFile.getBootClassPath();
-        if(bcp.isEmpty()) {
-            return Arrays.asList("boot.oat");
-        } else {
-            return replaceElementsSuffix(bcp, ".art", ".oat");
         }
     }
 

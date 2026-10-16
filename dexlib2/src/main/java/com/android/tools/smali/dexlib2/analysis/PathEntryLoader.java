@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * Copyright 2016, Google LLC
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,7 +38,6 @@ package com.android.tools.smali.dexlib2.analysis;
 import com.android.tools.smali.dexlib2.DexFileFactory;
 import com.android.tools.smali.dexlib2.Opcodes;
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile;
-import com.android.tools.smali.dexlib2.dexbacked.OatFile;
 import com.android.tools.smali.dexlib2.iface.MultiDexContainer;
 
 import javax.annotation.Nonnull;
@@ -90,19 +94,6 @@ public class PathEntryLoader {
 
         for (String entryName : entryNames) {
             classProviders.add(new DexClassProvider(container.getEntry(entryName).getDexFile()));
-        }
-
-        if (loadOatDependencies && container instanceof OatFile) {
-            List<String> oatDependencies = ((OatFile) container).getBootClassPath();
-            if (!oatDependencies.isEmpty()) {
-                try {
-                    loadOatDependencies(entryFile.getParentFile(), oatDependencies);
-                } catch (ClassPathResolver.NotFoundException ex) {
-                    throw new ClassPathResolver.ResolveException(ex, "Error while loading oat file %s", entryFile);
-                } catch (NoDexException ex) {
-                    throw new ClassPathResolver.ResolveException(ex, "Error while loading dependencies for oat file %s", entryFile);
-                }
-            }
         }
     }
 

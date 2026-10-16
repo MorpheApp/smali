@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * Copyright 2016, Google LLC
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +49,7 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -161,7 +167,7 @@ public class ZipDexContainer implements MultiDexContainer<DexBackedDexFile> {
                 boolean isLast;
                 int fileSize;
                 try {
-                    DexBackedDexFile dex = new DexBackedDexFile(opcodes, buf, 0, true, headerOffset);
+                    DexBackedDexFile dex = new DexBackedDexFile(opcodes, ByteBuffer.wrap(buf), 0, true, headerOffset);
                     isLast = dex.isDexContainerLastEntry();
                     fileSize = dex.getFileSize();
                 } catch (NotADexFile | InvalidFile | UnsupportedFile ex) {
@@ -185,7 +191,7 @@ public class ZipDexContainer implements MultiDexContainer<DexBackedDexFile> {
                             @Nonnull
                             @Override
                             public DexBackedDexFile getDexFile() {
-                                return new DexBackedDexFile(opcodes, buf, 0, true, headerOffset);
+                                return new DexBackedDexFile(opcodes, ByteBuffer.wrap(buf), 0, true, headerOffset);
                             }
 
                             @Nonnull

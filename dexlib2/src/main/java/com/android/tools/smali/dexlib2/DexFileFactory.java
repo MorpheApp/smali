@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * Copyright 2012, Google LLC
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,18 +35,12 @@
 
 package com.android.tools.smali.dexlib2;
 
-import static java.util.Collections.unmodifiableList;
-
 import com.android.tools.smali.dexlib2.iface.DexFile;
 import com.android.tools.smali.dexlib2.iface.MultiDexContainer;
 import com.android.tools.smali.dexlib2.iface.MultiDexContainer.DexEntry;
 
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile;
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile.NotADexFile;
-import com.android.tools.smali.dexlib2.dexbacked.DexBackedOdexFile;
-import com.android.tools.smali.dexlib2.dexbacked.OatFile;
-import com.android.tools.smali.dexlib2.dexbacked.OatFile.NotAnOatFileException;
-import com.android.tools.smali.dexlib2.dexbacked.OatFile.VdexProvider;
 import com.android.tools.smali.dexlib2.dexbacked.ZipDexContainer;
 import com.android.tools.smali.dexlib2.dexbacked.ZipDexContainer.NotAZipFileException;
 import com.android.tools.smali.dexlib2.writer.pool.DexPool;
@@ -79,7 +78,6 @@ public final class DexFileFactory {
      * @param opcodes The set of opcodes to use
      * @return A DexBackedDexFile for the given file
      *
-     * @throws UnsupportedOatVersionException If file refers to an unsupported oat file
      * @throws DexFileNotFoundException If file does not exist, if file is a zip file but does not have a "classes.dex"
      * entry, or if file is an oat file that has no dex entries.
      * @throws UnsupportedFileTypeException If file is not a valid dex/zip/odex/oat file, or if the "classes.dex" entry
@@ -104,39 +102,9 @@ public final class DexFileFactory {
             } catch (NotADexFile ex) {
                 // just eat it
             }
-
-            try {
-                return DexBackedOdexFile.fromInputStream(opcodes, inputStream);
-            } catch (DexBackedOdexFile.NotAnOdexFile ex) {
-                // just eat it
-            }
-
-            // Note: DexBackedDexFile.fromInputStream and DexBackedOdexFile.fromInputStream will reset inputStream
-            // back to the same position, if they fails
-
-            OatFile oatFile = null;
-            try {
-                oatFile = OatFile.fromInputStream(inputStream, new FilenameVdexProvider(file));
-            } catch (NotAnOatFileException ex) {
-                // just eat it
-            }
-
-            if (oatFile != null) {
-                if (oatFile.isSupportedVersion() == OatFile.UNSUPPORTED) {
-                    throw new UnsupportedOatVersionException(oatFile);
-                }
-
-                List<DexBackedDexFile> oatDexFiles = oatFile.getDexFiles();
-
-                if (oatDexFiles.size() == 0) {
-                    throw new DexFileNotFoundException("Oat file %s contains no dex files", file.getName());
-                }
-
-                return oatDexFiles.get(0);
-            }
         }
 
-        throw new UnsupportedFileTypeException("%s is not an apk, dex, odex or oat file.", file.getPath());
+        throw new UnsupportedFileTypeException("%s is not an apk or dex file.", file.getPath());
     }
 
     /**
@@ -173,7 +141,6 @@ public final class DexFileFactory {
      * @param opcodes The set of opcodes to use
      * @return A DexBackedDexFile for the given entry
      *
-     * @throws UnsupportedOatVersionException If file refers to an unsupported oat file
      * @throws DexFileNotFoundException If the file does not exist, or if no matching entry could be found
      * @throws UnsupportedFileTypeException If file is not a valid zip/oat file, or if the matching entry is not a
      * valid dex file
@@ -195,30 +162,7 @@ public final class DexFileFactory {
             // eat it and continue
         }
 
-        try (InputStream inputStream = new BufferedInputStream(new FileInputStream(file))) {
-            OatFile oatFile = null;
-            try {
-                oatFile = OatFile.fromInputStream(inputStream, new FilenameVdexProvider(file));
-            } catch (NotAnOatFileException ex) {
-                // just eat it
-            }
-
-            if (oatFile != null) {
-                if (oatFile.isSupportedVersion() == OatFile.UNSUPPORTED) {
-                    throw new UnsupportedOatVersionException(oatFile);
-                }
-
-                List<? extends DexFile> oatDexFiles = oatFile.getDexFiles();
-
-                if (oatDexFiles.size() == 0) {
-                    throw new DexFileNotFoundException("Oat file %s contains no dex files", file.getName());
-                }
-
-                return new DexEntryFinder(file.getPath(), oatFile).findEntry(dexEntry, exactMatch);
-            }
-        }
-
-        throw new UnsupportedFileTypeException("%s is not an apk or oat file.", file.getPath());
+        throw new UnsupportedFileTypeException("%s is not an apk file.", file.getPath());
     }
 
     /**
@@ -251,34 +195,9 @@ public final class DexFileFactory {
             } catch (NotADexFile ex) {
                 // just eat it
             }
-
-            try {
-                DexBackedOdexFile odexFile = DexBackedOdexFile.fromInputStream(opcodes, inputStream);
-                return new SingletonMultiDexContainer(file.getPath(), odexFile);
-            } catch (DexBackedOdexFile.NotAnOdexFile ex) {
-                // just eat it
-            }
-
-            // Note: DexBackedDexFile.fromInputStream and DexBackedOdexFile.fromInputStream will reset inputStream
-            // back to the same position, if they fails
-
-            OatFile oatFile = null;
-            try {
-                oatFile = OatFile.fromInputStream(inputStream, new FilenameVdexProvider(file));
-            } catch (NotAnOatFileException ex) {
-                // just eat it
-            }
-
-            if (oatFile != null) {
-                // TODO: we should support loading earlier oat files, just not deodexing them
-                if (oatFile.isSupportedVersion() == OatFile.UNSUPPORTED) {
-                    throw new UnsupportedOatVersionException(oatFile);
-                }
-                return oatFile;
-            }
         }
 
-        throw new UnsupportedFileTypeException("%s is not an apk, dex, odex or oat file.", file.getPath());
+        throw new UnsupportedFileTypeException("%s is not an apk or dex file.", file.getPath());
     }
 
     /**
@@ -300,15 +219,6 @@ public final class DexFileFactory {
 
         public DexFileNotFoundException(Throwable cause, @Nullable String message, Object... formatArgs) {
             super(cause, message, formatArgs);
-        }
-    }
-
-    public static class UnsupportedOatVersionException extends ExceptionWithContext {
-        @Nonnull public final OatFile oatFile;
-
-        public UnsupportedOatVersionException(@Nonnull OatFile oatFile) {
-            super("Unsupported oat version: %d", oatFile.getOatVersion());
-            this.oatFile = oatFile;
         }
     }
 
@@ -488,55 +398,5 @@ public final class DexFileFactory {
             }
             return null;
         }
-    }
-
-    public static class FilenameVdexProvider implements VdexProvider {
-        private final File vdexFile;
-
-        @Nullable
-        private byte[] buf = null;
-        private boolean loadedVdex = false;
-
-        public FilenameVdexProvider(File oatFile) {
-            File oatParent = oatFile.getAbsoluteFile().getParentFile();
-            String baseName = getNameWithoutExtension(oatFile.getAbsolutePath());
-            vdexFile = new File(oatParent, baseName + ".vdex");
-        }
-
-        @Nullable @Override public byte[] getVdex() {
-            if (!loadedVdex) {
-                File candidateFile = vdexFile;
-
-                if (!candidateFile.exists()) {
-                    // On api 28, for framework files, the vdex file in the architecture-specific directory is just a
-                    // symlink to a common vdex file in the framework directory. When loop-mounting a system image, that
-                    // symlink won't resolve because it uses an absolute path. As a workaround, we'll just search upward
-                    // one directory to see if it's there.
-                    File parentDirectory = candidateFile.getParentFile().getParentFile();
-                    if (parentDirectory != null) {
-                        candidateFile = new File(parentDirectory, vdexFile.getName());
-                    }
-                }
-
-                if (candidateFile.exists()) {
-                    try {
-                        buf = InputStreamUtil.toByteArray(new FileInputStream(candidateFile));
-                    } catch (FileNotFoundException e) {
-                        buf = null;
-                    } catch (IOException ex) {
-                        throw new RuntimeException(ex);
-                    }
-                }
-                loadedVdex = true;
-            }
-
-            return buf;
-        }
-
-        public static String getNameWithoutExtension(String file) {
-            String fileName = new File(file).getName();
-            int dotIndex = fileName.lastIndexOf('.');
-            return (dotIndex == -1) ? fileName : fileName.substring(0, dotIndex);
-          }
     }
 }
