@@ -58,6 +58,10 @@ class PoolClassDef extends BaseTypeReference implements ClassDef {
     @Nonnull final SortedSet<PoolMethod> directMethods;
     @Nonnull final SortedSet<PoolMethod> virtualMethods;
 
+    // The fields and methods sorted together, which are created when first needed.
+    @Nullable private List<Field> sortedFields;
+    @Nullable private List<PoolMethod> sortedMethods;
+
     int classDefIndex = DexPool.NO_INDEX;
     int annotationDirectoryOffset = DexPool.NO_OFFSET;
 
@@ -112,9 +116,15 @@ class PoolClassDef extends BaseTypeReference implements ClassDef {
     @Nonnull @Override public Collection<Field> getFields() {
         return new AbstractCollection<Field>() {
             @Nonnull @Override public Iterator<Field> iterator() {
-                ArrayList<Field> fields = new ArrayList<>(staticFields);
-                fields.addAll(instanceFields);
-                fields.sort(CollectionUtils.naturalOrdering());
+                // The fields can't change, so they are only sorted the first time.
+                List<Field> fields = sortedFields;
+                if (fields == null) {
+                    ArrayList<Field> allFields = new ArrayList<>(staticFields);
+                    allFields.addAll(instanceFields);
+                    allFields.sort(CollectionUtils.naturalOrdering());
+                    fields = Collections.unmodifiableList(allFields);
+                    sortedFields = fields;
+                }
                 return fields.iterator();
             }
 
@@ -135,9 +145,15 @@ class PoolClassDef extends BaseTypeReference implements ClassDef {
     @Nonnull @Override public Collection<PoolMethod> getMethods() {
         return new AbstractCollection<PoolMethod>() {
             @Nonnull @Override public Iterator<PoolMethod> iterator() {
-                ArrayList<PoolMethod> methods = new ArrayList<>(directMethods);
-                methods.addAll(virtualMethods);
-                methods.sort(CollectionUtils.naturalOrdering());
+                // The methods can't change, so they are only sorted the first time.
+                List<PoolMethod> methods = sortedMethods;
+                if (methods == null) {
+                    ArrayList<PoolMethod> allMethods = new ArrayList<>(directMethods);
+                    allMethods.addAll(virtualMethods);
+                    allMethods.sort(CollectionUtils.naturalOrdering());
+                    methods = Collections.unmodifiableList(allMethods);
+                    sortedMethods = methods;
+                }
                 return methods.iterator();
             }
 

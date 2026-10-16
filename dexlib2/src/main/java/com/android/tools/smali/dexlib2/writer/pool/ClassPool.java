@@ -123,11 +123,12 @@ public class ClassPool extends BasePool<String, PoolClassDef> implements ClassSe
             }
 
             dexPool.annotationSetSection.intern(field.getAnnotations());
+        }
 
-            ArrayEncodedValue staticInitializers = getStaticInitializers(poolClassDef);
-            if (staticInitializers != null) {
-                dexPool.encodedArraySection.intern(staticInitializers);
-            }
+        // The static initializers are for the whole class, so they are interned once and not for each field.
+        ArrayEncodedValue staticInitializers = getStaticInitializers(poolClassDef);
+        if (staticInitializers != null) {
+            dexPool.encodedArraySection.intern(staticInitializers);
         }
 
         HashSet<String> methods = new HashSet<String>();

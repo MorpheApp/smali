@@ -33,16 +33,20 @@ package com.android.tools.smali.dexlib2.writer;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.android.tools.smali.dexlib2.AccessFlags;
 import com.android.tools.smali.dexlib2.AnnotationVisibility;
 import com.android.tools.smali.dexlib2.Opcodes;
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile;
+import com.android.tools.smali.dexlib2.dexbacked.raw.ProtoIdItem;
 import com.android.tools.smali.dexlib2.iface.Annotation;
 import com.android.tools.smali.dexlib2.iface.AnnotationElement;
 import com.android.tools.smali.dexlib2.iface.ClassDef;
+import com.android.tools.smali.dexlib2.iface.Field;
 import com.android.tools.smali.dexlib2.iface.reference.FieldReference;
 import com.android.tools.smali.dexlib2.iface.reference.MethodProtoReference;
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
 import com.android.tools.smali.dexlib2.iface.value.AnnotationEncodedValue;
+import com.android.tools.smali.dexlib2.iface.value.IntEncodedValue;
 import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotation;
 import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotationElement;
 import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef;
@@ -53,9 +57,11 @@ import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter;
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference;
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference;
 import com.android.tools.smali.dexlib2.immutable.value.ImmutableAnnotationEncodedValue;
+import com.android.tools.smali.dexlib2.immutable.value.ImmutableIntEncodedValue;
 import com.android.tools.smali.dexlib2.immutable.value.ImmutableNullEncodedValue;
 import com.android.tools.smali.dexlib2.writer.io.MemoryDataStore;
 import com.android.tools.smali.dexlib2.writer.pool.DexPool;
+import com.android.tools.smali.util.CollectionUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -65,6 +71,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.TreeMap;
 
 public class DexWriterTest {
     @Test
@@ -208,6 +215,62 @@ public class DexWriterTest {
         Assert.assertEquals(returnTypes.size() * parameterLists.size(), protos.size());
         for (int i = 1; i < protos.size(); i++) {
             Assert.assertTrue(protos.get(i - 1) + " " + protos.get(i), protos.get(i - 1).compareTo(protos.get(i)) < 0);
+        }
+
+        // Type lists are written sorted by their types, so the parameter lists are at increasing offsets.
+        TreeMap<List<String>, Integer> parameterListOffsets = new TreeMap<>(
+                CollectionUtils::compareAsIterable);
+        for (int i = 0; i < protos.size(); i++) {
+            List<String> parameterTypes = new ArrayList<>();
+            for (CharSequence parameterType: protos.get(i).getParameterTypes()) {
+                parameterTypes.add(parameterType.toString());
+            }
+            if (!parameterTypes.isEmpty()) {
+                int offset = dexFile.getBuffer().readSmallUint(
+                        dexFile.getProtoSection().getOffset(i) + ProtoIdItem.PARAMETERS_OFFSET);
+                Integer previousOffset = parameterListOffsets.put(parameterTypes, offset);
+                Assert.assertTrue(previousOffset == null || previousOffset == offset);
+            }
+        }
+        Assert.assertEquals(parameterLists.size() - 1, parameterListOffsets.size());
+        int previousOffset = 0;
+        for (int offset: parameterListOffsets.values()) {
+            Assert.assertTrue(parameterListOffsets.toString(), offset > previousOffset);
+            previousOffset = offset;
+        }
+    }
+
+    @Test
+    public void testStaticInitializers() throws IOException {
+        List<ImmutableClassDef> classDefs = new ArrayList<>();
+        for (String type: Arrays.asList("La;", "Lb;")) {
+            // Static and instance fields in mixed order, with a default value and fields without a value.
+            List<ImmutableField> fields = Arrays.asList(
+                    new ImmutableField(type, "x", "I", 0, null, null, null),
+                    new ImmutableField(type, "c", "I", AccessFlags.STATIC.getValue(),
+                            new ImmutableIntEncodedValue(3), null, null),
+                    new ImmutableField(type, "a", "I", AccessFlags.STATIC.getValue(),
+                            new ImmutableIntEncodedValue(1), null, null),
+                    new ImmutableField(type, "y", "I", 0, null, null, null),
+                    new ImmutableField(type, "b", "I", AccessFlags.STATIC.getValue(),
+                            new ImmutableIntEncodedValue(0), null, null),
+                    new ImmutableField(type, "d", "I", AccessFlags.STATIC.getValue(), null, null, null));
+            classDefs.add(new ImmutableClassDef(type, 0, "Ljava/lang/Object;", null, null, null, fields, null));
+        }
+
+        DexBackedDexFile dexFile = writeClasses(classDefs);
+
+        Assert.assertEquals(2, dexFile.getClasses().size());
+        for (ClassDef classDef: dexFile.getClasses()) {
+            List<String> names = new ArrayList<>();
+            List<Integer> values = new ArrayList<>();
+            for (Field field: classDef.getStaticFields()) {
+                names.add(field.getName());
+                values.add(field.getInitialValue() == null ? null :
+                        ((IntEncodedValue) field.getInitialValue()).getValue());
+            }
+            Assert.assertEquals(Arrays.asList("a", "b", "c", "d"), names);
+            Assert.assertEquals(Arrays.asList(1, 0, 3, null), values);
         }
     }
 

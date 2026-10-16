@@ -278,7 +278,7 @@ public abstract class DexWriter<
             };
 
     /**
-     * An item with the indexes of the parts it is sorted by.
+     * An item with the indexes of the parts it is sorted by, in the order they are compared.
      *
      * Strings, types and protos are written before the items that refer to them, and their
      * indexes are in the same order as their values. Sorting by the indexes gives the order the
@@ -289,6 +289,7 @@ public abstract class DexWriter<
         final int index1;
         final int index2;
         final int index3;
+        // Type indexes compared after the other indexes, one by one and then by the count.
         @Nullable final int[] indexes;
 
         IndexedEntry(@Nonnull Map.Entry<? extends K, Integer> entry, int index1, int index2, int index3,
@@ -319,6 +320,16 @@ public abstract class DexWriter<
             return Integer.compare(indexes1.length, indexes2.length);
         }
     };
+
+    @Nonnull
+    private int[] getTypeIndexes(@Nonnull Collection<? extends TypeKey> types) {
+        int[] typeIndexes = new int[types.size()];
+        int index = 0;
+        for (TypeKey type: types) {
+            typeIndexes[index++] = typeSection.getItemIndex(type);
+        }
+        return typeIndexes;
+    }
 
     private static <T extends Comparable<? super T>> Comparator<Map.Entry<? extends T, ?>> comparableKeyComparator() {
         return new Comparator<Entry<? extends T, ?>>() {
@@ -550,14 +561,9 @@ public abstract class DexWriter<
         List<IndexedEntry<ProtoRefKey>> protoEntries = new ArrayList<>(protoSection.getItems().size());
         for (Map.Entry<? extends ProtoRefKey, Integer> entry: protoSection.getItems()) {
             ProtoRefKey key = entry.getKey();
-            Collection<? extends TypeKey> parameters = typeListSection.getTypes(protoSection.getParameters(key));
-            int[] parameterIndexes = new int[parameters.size()];
-            int parameterIndex = 0;
-            for (TypeKey parameter: parameters) {
-                parameterIndexes[parameterIndex++] = typeSection.getItemIndex(parameter);
-            }
             protoEntries.add(new IndexedEntry<ProtoRefKey>(entry,
-                    typeSection.getItemIndex(protoSection.getReturnType(key)), 0, 0, parameterIndexes));
+                    typeSection.getItemIndex(protoSection.getReturnType(key)), 0, 0,
+                    getTypeIndexes(typeListSection.getTypes(protoSection.getParameters(key)))));
         }
         Collections.sort(protoEntries, INDEXED_ENTRY_COMPARATOR);
 
@@ -924,28 +930,23 @@ public abstract class DexWriter<
     private void writeTypeLists(@Nonnull DexDataWriter writer) throws IOException {
         writer.align();
         typeListSectionOffset = writer.getPosition();
-        List<Map.Entry<? extends TypeListKey, Integer>> typeListEntries =
-                new ArrayList<>(typeListSection.getItems());
-        Collections.sort(typeListEntries,
-                new Comparator<Map.Entry<? extends TypeListKey, Integer>>() {
-                    @Override
-                    public int compare(
-                            Map.Entry<? extends TypeListKey, Integer> o1,
-                            Map.Entry<? extends TypeListKey, Integer> o2) {
-                        return CollectionUtils.compareAsIterable(
-                                CollectionUtils.usingToStringOrdering(),
-                                typeListSection.getTypes(o1.getKey()),
-                                typeListSection.getTypes(o2.getKey()));
-                    }
-                });
-        for (Map.Entry<? extends TypeListKey, Integer> entry: typeListEntries) {
-            writer.align();
-            entry.setValue(writer.getPosition());
 
-            Collection<? extends TypeKey> types = typeListSection.getTypes(entry.getKey());
-            writer.writeInt(types.size());
-            for (TypeKey typeKey: types) {
-                writer.writeUshort(typeSection.getItemIndex(typeKey));
+        // Type lists are sorted by their types, the same as the parameters of protos.
+        List<IndexedEntry<TypeListKey>> typeListEntries = new ArrayList<>(typeListSection.getItems().size());
+        for (Map.Entry<? extends TypeListKey, Integer> entry: typeListSection.getItems()) {
+            typeListEntries.add(new IndexedEntry<>(entry, 0, 0, 0,
+                    getTypeIndexes(typeListSection.getTypes(entry.getKey()))));
+        }
+        typeListEntries.sort(INDEXED_ENTRY_COMPARATOR);
+
+        for (IndexedEntry<TypeListKey> indexedEntry: typeListEntries) {
+            writer.align();
+            indexedEntry.entry.setValue(writer.getPosition());
+
+            int[] typeIndexes = indexedEntry.indexes;
+            writer.writeInt(typeIndexes.length);
+            for (int typeIndex: typeIndexes) {
+                writer.writeUshort(typeIndex);
             }
         }
     }
