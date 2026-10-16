@@ -35,10 +35,12 @@ import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile;
 import com.android.tools.smali.dexlib2.dexbacked.raw.FieldIdItem;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class DexBackedFieldReference extends BaseFieldReference {
     @Nonnull public final DexBackedDexFile dexFile;
     private final int fieldIndex;
+    private int cachedHashCode;
 
     public DexBackedFieldReference(@Nonnull DexBackedDexFile dexFile, int fieldIndex) {
         this.dexFile = dexFile;
@@ -76,6 +78,28 @@ public class DexBackedFieldReference extends BaseFieldReference {
      */
     public int getSize() {
         return FieldIdItem.ITEM_SIZE;
+    }
+
+    @Override
+    public int hashCode() {
+        // The dex file can't change, so the hash code is calculated only once.
+        int hashCode = cachedHashCode;
+        if (hashCode == 0) {
+            hashCode = super.hashCode();
+            cachedHashCode = hashCode;
+        }
+        return hashCode;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+        if (o instanceof DexBackedFieldReference) {
+            DexBackedFieldReference other = (DexBackedFieldReference) o;
+            if (other.dexFile == dexFile && other.fieldIndex == fieldIndex) {
+                return true;
+            }
+        }
+        return super.equals(o);
     }
 
     @Override

@@ -72,7 +72,13 @@ public class DexDataWriter extends BufferedOutputStream {
     @Override
     public void write(int b) throws IOException {
         filePosition++;
-        super.write(b);
+        // Write directly to the buffer when there is room. BufferedOutputStream.write(int) is
+        // synchronized, and most of the dex file is written one byte at a time.
+        if (count < buf.length) {
+            buf[count++] = (byte) b;
+        } else {
+            super.write(b);
+        }
     }
 
     @Override

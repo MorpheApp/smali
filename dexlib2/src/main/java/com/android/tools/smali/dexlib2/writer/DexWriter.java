@@ -277,6 +277,49 @@ public abstract class DexWriter<
                 }
             };
 
+    /**
+     * An item with the indexes of the parts it is sorted by.
+     *
+     * Strings, types and protos are written before the items that refer to them, and their
+     * indexes are in the same order as their values. Sorting by the indexes gives the order the
+     * dex format requires, without comparing the strings of the items again for each comparison.
+     */
+    private static final class IndexedEntry<K> {
+        @Nonnull final Map.Entry<? extends K, Integer> entry;
+        final int index1;
+        final int index2;
+        final int index3;
+        @Nullable final int[] indexes;
+
+        IndexedEntry(@Nonnull Map.Entry<? extends K, Integer> entry, int index1, int index2, int index3,
+                     @Nullable int[] indexes) {
+            this.entry = entry;
+            this.index1 = index1;
+            this.index2 = index2;
+            this.index3 = index3;
+            this.indexes = indexes;
+        }
+    }
+
+    private static final Comparator<IndexedEntry<?>> INDEXED_ENTRY_COMPARATOR = new Comparator<IndexedEntry<?>>() {
+        @Override public int compare(IndexedEntry<?> o1, IndexedEntry<?> o2) {
+            int res = Integer.compare(o1.index1, o2.index1);
+            if (res != 0) return res;
+            res = Integer.compare(o1.index2, o2.index2);
+            if (res != 0) return res;
+            res = Integer.compare(o1.index3, o2.index3);
+            if (res != 0 || o1.indexes == null || o2.indexes == null) return res;
+            int[] indexes1 = o1.indexes;
+            int[] indexes2 = o2.indexes;
+            int length = Math.min(indexes1.length, indexes2.length);
+            for (int i = 0; i < length; i++) {
+                res = Integer.compare(indexes1[i], indexes2[i]);
+                if (res != 0) return res;
+            }
+            return Integer.compare(indexes1.length, indexes2.length);
+        }
+    };
+
     private static <T extends Comparable<? super T>> Comparator<Map.Entry<? extends T, ?>> comparableKeyComparator() {
         return new Comparator<Entry<? extends T, ?>>() {
             @Override public int compare(Entry<? extends T, ?> o1, Entry<? extends T, ?> o2) {
@@ -503,14 +546,26 @@ public abstract class DexWriter<
         protoSectionOffset = writer.getPosition();
         int index = 0;
 
-        List<Map.Entry<? extends ProtoRefKey, Integer>> protoEntries = new ArrayList<>(protoSection.getItems());
-        Collections.sort(protoEntries, DexWriter.<ProtoRefKey>comparableKeyComparator());
-
-        for (Map.Entry<? extends ProtoRefKey, Integer> entry: protoEntries) {
-            entry.setValue(index++);
+        // Protos are sorted by the return type and then the parameter types.
+        List<IndexedEntry<ProtoRefKey>> protoEntries = new ArrayList<>(protoSection.getItems().size());
+        for (Map.Entry<? extends ProtoRefKey, Integer> entry: protoSection.getItems()) {
             ProtoRefKey key = entry.getKey();
+            Collection<? extends TypeKey> parameters = typeListSection.getTypes(protoSection.getParameters(key));
+            int[] parameterIndexes = new int[parameters.size()];
+            int parameterIndex = 0;
+            for (TypeKey parameter: parameters) {
+                parameterIndexes[parameterIndex++] = typeSection.getItemIndex(parameter);
+            }
+            protoEntries.add(new IndexedEntry<ProtoRefKey>(entry,
+                    typeSection.getItemIndex(protoSection.getReturnType(key)), 0, 0, parameterIndexes));
+        }
+        Collections.sort(protoEntries, INDEXED_ENTRY_COMPARATOR);
+
+        for (IndexedEntry<ProtoRefKey> indexedEntry: protoEntries) {
+            indexedEntry.entry.setValue(index++);
+            ProtoRefKey key = indexedEntry.entry.getKey();
             writer.writeInt(stringSection.getItemIndex(protoSection.getShorty(key)));
-            writer.writeInt(typeSection.getItemIndex(protoSection.getReturnType(key)));
+            writer.writeInt(indexedEntry.index1);
             writer.writeInt(typeListSection.getNullableItemOffset(protoSection.getParameters(key)));
         }
     }
@@ -519,15 +574,22 @@ public abstract class DexWriter<
         fieldSectionOffset = writer.getPosition();
         int index = 0;
 
-        List<Map.Entry<? extends FieldRefKey, Integer>> fieldEntries = new ArrayList<>(fieldSection.getItems());
-        Collections.sort(fieldEntries, DexWriter.<FieldRefKey>comparableKeyComparator());
-        
-        for (Map.Entry<? extends FieldRefKey, Integer> entry: fieldEntries) {
-            entry.setValue(index++);
+        // Fields are sorted by the defining class, then the name and then the type.
+        List<IndexedEntry<FieldRefKey>> fieldEntries = new ArrayList<>(fieldSection.getItems().size());
+        for (Map.Entry<? extends FieldRefKey, Integer> entry: fieldSection.getItems()) {
             FieldRefKey key = entry.getKey();
-            writer.writeUshort(typeSection.getItemIndex(fieldSection.getDefiningClass(key)));
-            writer.writeUshort(typeSection.getItemIndex(fieldSection.getFieldType(key)));
-            writer.writeInt(stringSection.getItemIndex(fieldSection.getName(key)));
+            fieldEntries.add(new IndexedEntry<FieldRefKey>(entry,
+                    typeSection.getItemIndex(fieldSection.getDefiningClass(key)),
+                    stringSection.getItemIndex(fieldSection.getName(key)),
+                    typeSection.getItemIndex(fieldSection.getFieldType(key)), null));
+        }
+        Collections.sort(fieldEntries, INDEXED_ENTRY_COMPARATOR);
+
+        for (IndexedEntry<FieldRefKey> indexedEntry: fieldEntries) {
+            indexedEntry.entry.setValue(index++);
+            writer.writeUshort(indexedEntry.index1);
+            writer.writeUshort(indexedEntry.index3);
+            writer.writeInt(indexedEntry.index2);
         }
     }
 
@@ -535,15 +597,22 @@ public abstract class DexWriter<
         methodSectionOffset = writer.getPosition();
         int index = 0;
 
-        List<Map.Entry<? extends MethodRefKey, Integer>> methodEntries = new ArrayList<>(methodSection.getItems());
-        Collections.sort(methodEntries, DexWriter.<MethodRefKey>comparableKeyComparator());
-        
-        for (Map.Entry<? extends MethodRefKey, Integer> entry: methodEntries) {
-            entry.setValue(index++);
+        // Methods are sorted by the defining class, then the name and then the proto.
+        List<IndexedEntry<MethodRefKey>> methodEntries = new ArrayList<>(methodSection.getItems().size());
+        for (Map.Entry<? extends MethodRefKey, Integer> entry: methodSection.getItems()) {
             MethodRefKey key = entry.getKey();
-            writer.writeUshort(typeSection.getItemIndex(methodSection.getDefiningClass(key)));
-            writer.writeUshort(protoSection.getItemIndex(methodSection.getPrototype(key)));
-            writer.writeInt(stringSection.getItemIndex(methodSection.getName(key)));
+            methodEntries.add(new IndexedEntry<MethodRefKey>(entry,
+                    typeSection.getItemIndex(methodSection.getDefiningClass(key)),
+                    stringSection.getItemIndex(methodSection.getName(key)),
+                    protoSection.getItemIndex(methodSection.getPrototype(key)), null));
+        }
+        Collections.sort(methodEntries, INDEXED_ENTRY_COMPARATOR);
+
+        for (IndexedEntry<MethodRefKey> indexedEntry: methodEntries) {
+            indexedEntry.entry.setValue(index++);
+            writer.writeUshort(indexedEntry.index1);
+            writer.writeUshort(indexedEntry.index3);
+            writer.writeInt(indexedEntry.index2);
         }
     }
 
