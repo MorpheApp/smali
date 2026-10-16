@@ -45,6 +45,7 @@ import com.android.tools.smali.dexlib2.writer.io.MemoryDataStore;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
+import java.nio.ByteBuffer;
 
 public class SmaliTestUtils {
 
@@ -93,7 +94,7 @@ public class SmaliTestUtils {
 
         dexBuilder.writeTo(dataStore);
 
-        DexBackedDexFile dexFile = new DexBackedDexFile(Opcodes.forApi(apiLevel), dataStore.getBuffer());
+        DexBackedDexFile dexFile = new DexBackedDexFile(Opcodes.forApi(apiLevel), ByteBuffer.wrap(dataStore.getBuffer()));
 
         return Iterables.getFirst(dexFile.getClasses(), null);
     }

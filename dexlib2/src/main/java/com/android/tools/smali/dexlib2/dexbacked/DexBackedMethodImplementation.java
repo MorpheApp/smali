@@ -152,7 +152,7 @@ public class DexBackedMethodImplementation implements MethodImplementation {
             System.err.println(String.format("%s: Invalid debug offset", method));
             return DebugInfo.newOrEmpty(dexFile, 0, this);
         }
-        if ((debugOffset + dexFile.getBaseDataOffset()) >= dexFile.getBuffer().buf.length) {
+        if ((debugOffset + dexFile.getBaseDataOffset()) >= dexFile.getBuffer().getBuf().capacity()) {
             System.err.println(String.format("%s: Invalid debug offset", method));
             return DebugInfo.newOrEmpty(dexFile, 0, this);
         }

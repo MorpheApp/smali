@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * Copyright 2013, Google LLC
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,6 +44,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.Writer;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -278,7 +284,7 @@ public class AnnotatedBytes {
      *
      * @param out non-null; where to write to
      */
-    public void writeAnnotations(Writer out, byte[] data, int offset) throws IOException {
+    public void writeAnnotations(Writer out, ByteBuffer data, int offset) throws IOException {
         int rightWidth = getAnnotationWidth();
         int leftWidth = outputWidth - rightWidth - 1;
 
@@ -318,8 +324,8 @@ public class AnnotatedBytes {
         }
 
         int lastKey = keys[keys.length-1];
-        if (lastKey < data.length) {
-            String left = Hex.dump(data, lastKey + offset, (data.length - offset) - lastKey, lastKey + offset, hexCols, 6);
+        if (lastKey < data.capacity()) {
+            String left = Hex.dump(data, lastKey + offset, (data.capacity() - offset) - lastKey, lastKey + offset, hexCols, 6);
             twoc.write(left, "");
         }
     }

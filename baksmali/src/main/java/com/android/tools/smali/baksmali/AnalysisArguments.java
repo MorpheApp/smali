@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * Copyright 2016, Google LLC
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,7 +42,6 @@ import com.android.tools.smali.dexlib2.VersionMap;
 import com.android.tools.smali.dexlib2.analysis.ClassPath;
 import com.android.tools.smali.dexlib2.analysis.ClassPathResolver;
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile;
-import com.android.tools.smali.dexlib2.dexbacked.OatFile;
 import com.android.tools.smali.dexlib2.iface.MultiDexContainer;
 import com.android.tools.smali.util.jcommander.ColonParameterSplitter;
 import com.android.tools.smali.util.jcommander.ExtendedParameter;
@@ -98,12 +102,7 @@ public class AnalysisArguments {
         MultiDexContainer<? extends DexBackedDexFile> container = dexEntry.getContainer();
 
         if (oatVersion == NOT_SPECIFIED) {
-            if (container instanceof OatFile) {
-                checkPackagePrivateAccess = true;
-                oatVersion = ((OatFile) container).getOatVersion();
-            } else {
-                oatVersion = VersionMap.mapApiToArtVersion(dexEntry.getDexFile().getOpcodes().api);
-            }
+            oatVersion = VersionMap.mapApiToArtVersion(dexEntry.getDexFile().getOpcodes().api);
         } else {
             // this should always be true for ART
             checkPackagePrivateAccess = true;
@@ -139,9 +138,6 @@ public class AnalysisArguments {
             resolver = new ClassPathResolver(filteredClassPathDirectories, bootClassPath, classPath, dexEntry);
         }
 
-        if (oatVersion == 0 && container instanceof OatFile) {
-            oatVersion = ((OatFile) container).getOatVersion();
-        }
         return new ClassPath(resolver.getResolvedClassProviders(), checkPackagePrivateAccess, oatVersion);
     }
 }

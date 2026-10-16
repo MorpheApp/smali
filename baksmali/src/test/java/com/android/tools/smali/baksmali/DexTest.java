@@ -37,6 +37,7 @@ import org.junit.Assert;
 import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 /**
  * A base test class for performing a test using a dex file as input
@@ -68,7 +69,7 @@ public abstract class DexTest {
         try {
             // Load file from resources as a stream
             byte[] inputBytes = BaksmaliTestUtils.readResourceBytesFully(getInputFilename(testName));
-            return new DexBackedDexFile(Opcodes.forApi(options.apiLevel), inputBytes);
+            return new DexBackedDexFile(Opcodes.forApi(options.apiLevel), ByteBuffer.wrap(inputBytes));
         } catch (IOException ex) {
             Assert.fail();
         }

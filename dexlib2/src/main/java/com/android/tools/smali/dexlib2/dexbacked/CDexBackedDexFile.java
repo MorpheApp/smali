@@ -1,4 +1,9 @@
 /*
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/smali
+ *
+ * -------------------------------------------------------------------
+ *
  * Copyright 2019, Google LLC
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,10 +43,12 @@ import com.android.tools.smali.dexlib2.util.DexUtil;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
 
+// TODO: Make this use proper memory mapping
 public class CDexBackedDexFile extends DexBackedDexFile {
     public CDexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull byte[] buf, int offset, boolean verifyMagic) {
-        super(opcodes, buf, offset, verifyMagic);
+        super(opcodes, ByteBuffer.wrap(buf), offset, verifyMagic);
     }
 
     public CDexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull DexBuffer buf) {
@@ -49,11 +56,11 @@ public class CDexBackedDexFile extends DexBackedDexFile {
     }
 
     public CDexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull byte[] buf, int offset) {
-        super(opcodes, buf, offset);
+        super(opcodes, ByteBuffer.wrap(buf), offset);
     }
 
     public CDexBackedDexFile(@Nullable Opcodes opcodes, @Nonnull byte[] buf) {
-        super(opcodes, buf);
+        super(opcodes, ByteBuffer.wrap(buf));
     }
 
     public static boolean isCdex(byte[] buf, int offset) {
@@ -71,6 +78,16 @@ public class CDexBackedDexFile extends DexBackedDexFile {
                 buf[offset+1] == cdexMagic[1] &&
                 buf[offset+2] == cdexMagic[2] &&
                 buf[offset+3] == cdexMagic[3];
+    }
+
+    public static boolean isCdex(ByteBuffer buf, int offset) {
+        if (offset < 0 || offset + 4 > buf.capacity()) {
+            return false;
+        }
+        return buf.get(offset) == 'c' &&
+                buf.get(offset+1) == 'd' &&
+                buf.get(offset+2) == 'e' &&
+                buf.get(offset+3) == 'x';
     }
 
     @Override
