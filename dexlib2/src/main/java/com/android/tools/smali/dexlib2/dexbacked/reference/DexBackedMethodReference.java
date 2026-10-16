@@ -38,6 +38,7 @@ import com.android.tools.smali.dexlib2.dexbacked.raw.TypeListItem;
 import com.android.tools.smali.dexlib2.dexbacked.util.FixedSizeList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import java.util.Collections;
 import java.util.List;
@@ -45,6 +46,7 @@ import java.util.List;
 public class DexBackedMethodReference extends BaseMethodReference {
     @Nonnull public final DexBackedDexFile dexFile;
     private final int methodIndex;
+    private int cachedHashCode;
     private int protoIdItemOffset;
 
     public DexBackedMethodReference(@Nonnull DexBackedDexFile dexFile, int methodIndex) {
@@ -113,6 +115,28 @@ public class DexBackedMethodReference extends BaseMethodReference {
      */
     public int getSize() {
         return MethodIdItem.ITEM_SIZE; //ushort + ushort + uint for indices
+    }
+
+    @Override
+    public int hashCode() {
+        // The dex file can't change, so the hash code is calculated only once.
+        int hashCode = cachedHashCode;
+        if (hashCode == 0) {
+            hashCode = super.hashCode();
+            cachedHashCode = hashCode;
+        }
+        return hashCode;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+        if (o instanceof DexBackedMethodReference) {
+            DexBackedMethodReference other = (DexBackedMethodReference) o;
+            if (other.dexFile == dexFile && other.methodIndex == methodIndex) {
+                return true;
+            }
+        }
+        return super.equals(o);
     }
 
     @Override

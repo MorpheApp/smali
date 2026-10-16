@@ -73,6 +73,28 @@ public abstract class DexBackedInstruction implements Instruction {
         return instruction;
     }
     
+    /**
+     * Returns the code units of the instruction at the given offset of the data buffer, the same as
+     * {@link #readFrom} would read. Only payload and unknown instructions are created to get their size.
+     */
+    public static int getCodeUnits(@Nonnull DexBackedDexFile dexFile, int dataOffset) {
+        DexBuffer dataBuffer = dexFile.getDataBuffer();
+        int opcodeValue = dataBuffer.readUbyte(dataOffset);
+
+        if (opcodeValue == 0) {
+            opcodeValue = dataBuffer.readUshort(dataOffset);
+        }
+
+        Opcode opcode = dexFile.getOpcodes().getOpcodeByValue(opcodeValue);
+        if (opcode != null && !opcode.format.isPayloadFormat) {
+            return opcode.format.size / 2;
+        }
+
+        return buildInstruction(dexFile, opcode,
+                dataOffset + dataBuffer.getBaseOffset() -
+                        dexFile.getBuffer().getBaseOffset() - dexFile.getBaseDataOffset()).getCodeUnits();
+    }
+
     private static DexBackedInstruction buildInstruction(@Nonnull DexBackedDexFile dexFile, @Nullable Opcode opcode,
                                                          int instructionStartOffset) {
         if (opcode == null) {

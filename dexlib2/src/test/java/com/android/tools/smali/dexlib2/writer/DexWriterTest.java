@@ -39,11 +39,19 @@ import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile;
 import com.android.tools.smali.dexlib2.iface.Annotation;
 import com.android.tools.smali.dexlib2.iface.AnnotationElement;
 import com.android.tools.smali.dexlib2.iface.ClassDef;
+import com.android.tools.smali.dexlib2.iface.reference.FieldReference;
+import com.android.tools.smali.dexlib2.iface.reference.MethodProtoReference;
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
 import com.android.tools.smali.dexlib2.iface.value.AnnotationEncodedValue;
 import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotation;
 import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotationElement;
 import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef;
 import com.android.tools.smali.dexlib2.immutable.ImmutableDexFile;
+import com.android.tools.smali.dexlib2.immutable.ImmutableField;
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethod;
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter;
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference;
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference;
 import com.android.tools.smali.dexlib2.immutable.value.ImmutableAnnotationEncodedValue;
 import com.android.tools.smali.dexlib2.immutable.value.ImmutableNullEncodedValue;
 import com.android.tools.smali.dexlib2.writer.io.MemoryDataStore;
@@ -53,6 +61,9 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class DexWriterTest {
@@ -132,5 +143,113 @@ public class DexWriterTest {
         Assert.assertEquals(2, dbElements.size());
         Assert.assertEquals("blah", dbElements.get(0).getName());
         Assert.assertEquals("zabaglione", dbElements.get(1).getName());
+    }
+
+    private static DexBackedDexFile writeClasses(List<ImmutableClassDef> classDefs) throws IOException {
+        MemoryDataStore dataStore = new MemoryDataStore();
+        DexPool.writeTo(dataStore, new ImmutableDexFile(Opcodes.getDefault(), classDefs));
+        return new DexBackedDexFile(Opcodes.getDefault(), ByteBuffer.wrap(dataStore.getBuffer()));
+    }
+
+    @Test
+    public void testReferenceOrder() throws IOException {
+        // Names, types and parameter lists that sort differently by value, length and prefix.
+        List<String> names = Arrays.asList("b", "a", "aa", "B", "z", "ab");
+        List<String> returnTypes = Arrays.asList("V", "I", "Lb;", "La;", "[I");
+        List<List<String>> parameterLists = Arrays.asList(
+                Collections.<String>emptyList(),
+                Arrays.asList("I"),
+                Arrays.asList("I", "I"),
+                Arrays.asList("J"),
+                Arrays.asList("I", "J"),
+                Arrays.asList("La;", "I"),
+                Arrays.asList("Ljava/lang/String;"),
+                Arrays.asList("[I"));
+
+        List<ImmutableClassDef> classDefs = new ArrayList<>();
+        int expectedMethods = 0;
+        int expectedFields = 0;
+        for (String type: Arrays.asList("Lb;", "La;", "Lc/a;")) {
+            List<ImmutableMethod> methods = new ArrayList<>();
+            List<ImmutableField> fields = new ArrayList<>();
+            for (String name: names) {
+                for (String returnType: returnTypes) {
+                    for (List<String> parameterTypes: parameterLists) {
+                        List<ImmutableMethodParameter> parameters = new ArrayList<>();
+                        for (String parameterType: parameterTypes) {
+                            parameters.add(new ImmutableMethodParameter(parameterType, null, null));
+                        }
+                        methods.add(new ImmutableMethod(type, name, parameters, returnType, 0, null, null, null));
+                    }
+                    fields.add(new ImmutableField(type, name, returnType.equals("V") ? "J" : returnType, 0,
+                            null, null, null));
+                }
+            }
+            expectedMethods += methods.size();
+            expectedFields += fields.size();
+            classDefs.add(new ImmutableClassDef(type, 0, "Ljava/lang/Object;", null, null, null, fields, methods));
+        }
+
+        DexBackedDexFile dexFile = writeClasses(classDefs);
+
+        List<? extends MethodReference> methods = dexFile.getMethodSection();
+        Assert.assertEquals(expectedMethods, methods.size());
+        for (int i = 1; i < methods.size(); i++) {
+            Assert.assertTrue(methods.get(i - 1) + " " + methods.get(i), methods.get(i - 1).compareTo(methods.get(i)) < 0);
+        }
+
+        List<? extends FieldReference> fields = dexFile.getFieldSection();
+        Assert.assertEquals(expectedFields, fields.size());
+        for (int i = 1; i < fields.size(); i++) {
+            Assert.assertTrue(fields.get(i - 1) + " " + fields.get(i), fields.get(i - 1).compareTo(fields.get(i)) < 0);
+        }
+
+        List<? extends MethodProtoReference> protos = dexFile.getProtoSection();
+        Assert.assertEquals(returnTypes.size() * parameterLists.size(), protos.size());
+        for (int i = 1; i < protos.size(); i++) {
+            Assert.assertTrue(protos.get(i - 1) + " " + protos.get(i), protos.get(i - 1).compareTo(protos.get(i)) < 0);
+        }
+    }
+
+    @Test
+    public void testDexBackedReferenceEquality() throws IOException {
+        ImmutableMethod method = new ImmutableMethod("La;", "foo",
+                Collections.singletonList(new ImmutableMethodParameter("I", null, null)), "V", 0, null, null, null);
+        ImmutableMethod otherMethod = new ImmutableMethod("La;", "foo", null, "V", 0, null, null, null);
+        ImmutableField field = new ImmutableField("La;", "bar", "I", 0, null, null, null);
+        DexBackedDexFile dexFile = writeClasses(Collections.singletonList(new ImmutableClassDef("La;", 0,
+                "Ljava/lang/Object;", null, null, null, Collections.singletonList(field),
+                Arrays.asList(method, otherMethod))));
+
+        ImmutableMethodReference methodReference = new ImmutableMethodReference("La;", "foo",
+                Collections.singletonList("I"), "V");
+        MethodReference first = null;
+        MethodReference second = null;
+        for (int i = 0; i < dexFile.getMethodSection().size(); i++) {
+            if (dexFile.getMethodSection().get(i).equals(methodReference)) {
+                first = dexFile.getMethodSection().get(i);
+                second = dexFile.getMethodSection().get(i);
+            }
+        }
+        Assert.assertNotNull(first);
+        Assert.assertNotSame(first, second);
+        Assert.assertEquals(first, second);
+        Assert.assertEquals(first.hashCode(), second.hashCode());
+        Assert.assertEquals(methodReference, first);
+        Assert.assertEquals(methodReference.hashCode(), first.hashCode());
+        for (MethodReference other: dexFile.getMethodSection()) {
+            if (other.getParameterTypes().isEmpty()) {
+                Assert.assertNotEquals(first, other);
+                Assert.assertNotEquals(other, first);
+            }
+        }
+
+        ImmutableFieldReference fieldReference = new ImmutableFieldReference("La;", "bar", "I");
+        FieldReference dexField = dexFile.getFieldSection().get(0);
+        Assert.assertEquals(dexField, dexFile.getFieldSection().get(0));
+        Assert.assertEquals(fieldReference, dexField);
+        Assert.assertEquals(dexField, fieldReference);
+        Assert.assertEquals(fieldReference.hashCode(), dexField.hashCode());
+        Assert.assertNotEquals(new ImmutableFieldReference("La;", "bar", "J"), dexField);
     }
 }

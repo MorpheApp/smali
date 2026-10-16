@@ -38,6 +38,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.android.tools.smali.util.UnmodifiableRangeMap;
 
@@ -52,14 +53,18 @@ public class Opcodes {
     @Nonnull private final EnumMap<Opcode, Short> opcodeValues;
     @Nonnull private final HashMap<String, Opcode> opcodesByName;
 
+    // Opcodes instances are immutable and slow to create, so each one is created only once.
+    private static final ConcurrentHashMap<Integer, Opcodes> apiCache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Integer, Opcodes> artVersionCache = new ConcurrentHashMap<>();
+
     @Nonnull
     public static Opcodes forApi(int api) {
-        return new Opcodes(api, NO_VERSION);
+        return apiCache.computeIfAbsent(api, key -> new Opcodes(key, NO_VERSION));
     }
 
     @Nonnull
     public static Opcodes forArtVersion(int artVersion) {
-        return new Opcodes(NO_VERSION, artVersion);
+        return artVersionCache.computeIfAbsent(artVersion, key -> new Opcodes(NO_VERSION, key));
     }
 
     @Nonnull
@@ -68,7 +73,7 @@ public class Opcodes {
         if (api == NO_VERSION) {
             throw new RuntimeException("Unsupported dex version " + dexVersion);
         }
-        return new Opcodes(api, NO_VERSION);
+        return forApi(api);
     }
 
     /**

@@ -41,6 +41,7 @@ import com.android.tools.smali.dexlib2.iface.debug.DebugItem;
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
 import com.android.tools.smali.dexlib2.util.AlignmentUtils;
 import com.android.tools.smali.util.ExceptionWithContext;
+import com.android.tools.smali.util.IteratorUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -103,6 +104,28 @@ public class DexBackedMethodImplementation implements MethodImplementation {
                 };
             }
         };
+    }
+
+    /**
+     * @return The code address of the last instruction, found without creating each instruction.
+     */
+    public int getLastInstructionCodeAddress() {
+        int instructionsSize = getInstructionsSize();
+        int startOffset = getInstructionsStartOffset();
+        int endOffset = startOffset + instructionsSize * 2;
+
+        int offset = startOffset;
+        int lastOffset = -1;
+        while (offset < endOffset && offset > lastOffset) {
+            lastOffset = offset;
+            offset += DexBackedInstruction.getCodeUnits(dexFile, offset) * 2;
+        }
+
+        if (lastOffset < 0 || offset != endOffset) {
+            // Empty or invalid code. Reading the instructions throws the same exception as before.
+            return instructionsSize - IteratorUtils.getLast(getInstructions().iterator()).getCodeUnits();
+        }
+        return (lastOffset - startOffset) / 2;
     }
 
     protected int getTriesSize() {

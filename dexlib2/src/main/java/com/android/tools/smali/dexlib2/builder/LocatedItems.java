@@ -110,6 +110,15 @@ public abstract class LocatedItems<T extends ItemWithLocation> {
         items.add(item);
     }
 
+    /**
+     * Adds the items to the given list, without creating a set view of them.
+     */
+    void addItemsTo(@Nonnull List<? super T> list) {
+        if (items != null) {
+            list.addAll(items);
+        }
+    }
+
     protected abstract String getAddLocatedItemError();
 
     public void mergeItemsIntoNext(@Nonnull MethodLocation nextLocation, LocatedItems<T> otherLocatedItems) {

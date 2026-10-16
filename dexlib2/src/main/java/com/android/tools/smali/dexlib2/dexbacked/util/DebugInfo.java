@@ -41,7 +41,6 @@ import com.android.tools.smali.dexlib2.immutable.debug.ImmutablePrologueEnd;
 import com.android.tools.smali.dexlib2.immutable.debug.ImmutableRestartLocal;
 import com.android.tools.smali.dexlib2.immutable.debug.ImmutableSetSourceFile;
 import com.android.tools.smali.dexlib2.immutable.debug.ImmutableStartLocal;
-import com.android.tools.smali.util.IteratorUtils;
 import com.android.tools.smali.dexlib2.iface.debug.DebugItem;
 import com.android.tools.smali.dexlib2.iface.debug.EndLocal;
 import com.android.tools.smali.dexlib2.iface.debug.LocalInfo;
@@ -122,9 +121,7 @@ public abstract class DebugInfo implements Iterable<DebugItem> {
             int registerCount = methodImpl.getRegisterCount();
             // Debug information can have events for addresses past the instructions.
             // They have no relevance for the method in question and are excluded from the iterator.
-            final int lastInstructionAddress =
-                methodImpl.getInstructionsSize()
-                    - IteratorUtils.getLast(methodImpl.getInstructions().iterator()).getCodeUnits();
+            final int lastInstructionAddress = methodImpl.getLastInstructionCodeAddress();
 
             //TODO: does dalvik allow references to invalid registers?
             final LocalInfo[] locals = new LocalInfo[registerCount];

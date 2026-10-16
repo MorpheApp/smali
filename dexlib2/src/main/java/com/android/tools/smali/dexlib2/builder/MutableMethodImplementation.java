@@ -146,7 +146,10 @@ public class MutableMethodImplementation implements MethodImplementation {
         int codeAddress = 0;
         int index = 0;
 
+        // Keep the instructions, so they are only read once from a dex backed implementation.
+        ArrayList<Instruction> instructions = new ArrayList<>();
         for (Instruction instruction: methodImplementation.getInstructions()) {
+            instructions.add(instruction);
             codeAddress += instruction.getCodeUnits();
             index++;
 
@@ -162,7 +165,7 @@ public class MutableMethodImplementation implements MethodImplementation {
 
         List<Task> switchPayloadTasks = new ArrayList<>();
         index = 0;
-        for (final Instruction instruction: methodImplementation.getInstructions()) {
+        for (final Instruction instruction: instructions) {
             final MethodLocation location = instructionList.get(index);
             final Opcode opcode = instruction.getOpcode();
             if (opcode == Opcode.PACKED_SWITCH_PAYLOAD || opcode == Opcode.SPARSE_SWITCH_PAYLOAD) {
@@ -264,7 +267,7 @@ public class MutableMethodImplementation implements MethodImplementation {
                 throw new IllegalStateException("This iterator was invalidated by a change to" +
                             " this MutableMethodImplementation.");
             }
-            debugItems.addAll(methodLocation.getDebugItems());
+            methodLocation.addDebugItemsTo(debugItems);
         }
 
         return Collections.unmodifiableList(debugItems);

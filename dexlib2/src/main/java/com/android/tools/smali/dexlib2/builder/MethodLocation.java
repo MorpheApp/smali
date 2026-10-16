@@ -41,6 +41,7 @@ import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
 import com.android.tools.smali.dexlib2.iface.reference.StringReference;
 import com.android.tools.smali.dexlib2.iface.reference.TypeReference;
 
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -94,6 +95,10 @@ public class MethodLocation {
     @Nonnull
     public Set<BuilderDebugItem> getDebugItems() {
         return debugItems.getModifiableItems(MethodLocation.this);
+    }
+
+    void addDebugItemsTo(@Nonnull List<? super BuilderDebugItem> list) {
+        debugItems.addItemsTo(list);
     }
 
     public void addLineNumber(int lineNumber) {

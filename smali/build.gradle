@@ -70,7 +70,7 @@ idea {
         if (buildDir.exists()) {
             excludeDirs.addAll(buildDir.listFiles())
         }
-        for (sourceDir in (sourceDirs + testSourceDirs)) {
+        for (sourceDir in (sourceDirs + testSources.files)) {
             excludeDirs.remove(sourceDir);
             while ((sourceDir = sourceDir.getParentFile()) != null) {
                 excludeDirs.remove(sourceDir);
@@ -95,6 +95,7 @@ dependencies {
 processResources.inputs.property('version', version)
 processResources.expand('version': version)
 processResources.dependsOn('generateGrammarSource')
+compileJava.dependsOn('generateGrammarSource')
 
 // Build a separate jar that contains all dependencies
 task fatJar(type: Jar, dependsOn: jar) {
