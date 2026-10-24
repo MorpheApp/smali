@@ -206,15 +206,12 @@ public class DexBackedClassDef extends BaseTypeReference implements ClassDef {
                                 DexBackedField item = new DexBackedField(dexFile, reader, DexBackedClassDef.this,
                                         previousIndex, staticInitialValueIterator, annotationIterator,
                                         hiddenApiRestrictions);
-                                FieldReference currentField = previousField;
-                                FieldReference nextField = ImmutableFieldReference.of(item);
-
-                                previousField = nextField;
                                 previousIndex = item.fieldIndex;
 
-                                if (skipDuplicates && currentField != null && currentField.equals(nextField)) {
+                                if (skipDuplicates && previousField != null && previousField.equals(item)) {
                                     continue;
                                 }
+                                previousField = item;
 
                                 return item;
                             }
@@ -274,15 +271,12 @@ public class DexBackedClassDef extends BaseTypeReference implements ClassDef {
 
                                 DexBackedField item = new DexBackedField(dexFile, reader, DexBackedClassDef.this,
                                         previousIndex, annotationIterator, hiddenApiRestrictions);
-                                FieldReference currentField = previousField;
-                                FieldReference nextField = ImmutableFieldReference.of(item);
-
-                                previousField = nextField;
                                 previousIndex = item.fieldIndex;
 
-                                if (skipDuplicates && currentField != null && currentField.equals(nextField)) {
+                                if (skipDuplicates && previousField != null && previousField.equals(item)) {
                                     continue;
                                 }
+                                previousField = item;
 
                                 return item;
                             }
@@ -353,16 +347,13 @@ public class DexBackedClassDef extends BaseTypeReference implements ClassDef {
                                 DexBackedMethod item = new DexBackedMethod(dexFile, reader, DexBackedClassDef.this,
                                         previousIndex, methodAnnotationIterator, parameterAnnotationIterator,
                                         hiddenApiRestrictions);
-                                MethodReference currentMethod = previousMethod;
-                                MethodReference nextMethod = ImmutableMethodReference.of(item);
-
-                                previousMethod = nextMethod;
                                 previousIndex = item.methodIndex;
 
-                                if (skipDuplicates && currentMethod != null && currentMethod.equals(nextMethod)) {
+                                if (skipDuplicates && previousMethod != null && previousMethod.equals(item)) {
                                     continue;
-
                                 }
+                                previousMethod = item;
+
                                 return item;
                             }
                         }
@@ -419,15 +410,13 @@ public class DexBackedClassDef extends BaseTypeReference implements ClassDef {
                                 DexBackedMethod item = new DexBackedMethod(dexFile, reader, DexBackedClassDef.this,
                                         previousIndex, methodAnnotationIterator, parameterAnnotationIterator,
                                         hiddenApiRestrictions);
-                                MethodReference currentMethod = previousMethod;
-                                MethodReference nextMethod = ImmutableMethodReference.of(item);
-
-                                previousMethod = nextMethod;
                                 previousIndex = item.methodIndex;
 
-                                if (skipDuplicates && currentMethod != null && currentMethod.equals(nextMethod)) {
+                                if (skipDuplicates && previousMethod != null && previousMethod.equals(item)) {
                                     continue;
                                 }
+                                previousMethod = item;
+
                                 return item;
                             }
                         }
