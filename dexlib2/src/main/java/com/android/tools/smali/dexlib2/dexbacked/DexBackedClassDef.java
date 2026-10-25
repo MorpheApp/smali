@@ -38,10 +38,6 @@ import com.android.tools.smali.dexlib2.dexbacked.util.EncodedArrayItemIterator;
 import com.android.tools.smali.dexlib2.dexbacked.util.VariableSizeListIterator;
 import com.android.tools.smali.dexlib2.dexbacked.util.VariableSizeLookaheadIterator;
 import com.android.tools.smali.dexlib2.iface.ClassDef;
-import com.android.tools.smali.dexlib2.iface.reference.FieldReference;
-import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
-import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference;
-import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference;
 import com.android.tools.smali.dexlib2.writer.DexWriter;
 import com.android.tools.smali.util.ChainedIterable;
 
@@ -186,7 +182,7 @@ public class DexBackedClassDef extends BaseTypeReference implements ClassDef {
                     return new VariableSizeLookaheadIterator<DexBackedField>(
                             dexFile.getDataBuffer(), fieldsStartOffset) {
                         private int count;
-                        @Nullable private FieldReference previousField;
+                        @Nullable private DexBackedField previousField;
                         private int previousIndex;
 
                         @Nullable
@@ -252,7 +248,7 @@ public class DexBackedClassDef extends BaseTypeReference implements ClassDef {
                     return new VariableSizeLookaheadIterator<DexBackedField>(
                             dexFile.getDataBuffer(), fieldsStartOffset) {
                         private int count;
-                        @Nullable private FieldReference previousField;
+                        @Nullable private DexBackedField previousField;
                         private int previousIndex;
 
                         @Nullable
@@ -327,7 +323,7 @@ public class DexBackedClassDef extends BaseTypeReference implements ClassDef {
                     return new VariableSizeLookaheadIterator<DexBackedMethod>(
                             dexFile.getDataBuffer(), methodsStartOffset) {
                         private int count;
-                        @Nullable private MethodReference previousMethod;
+                        @Nullable private DexBackedMethod previousMethod;
                         private int previousIndex;
 
                         @Nullable
@@ -380,18 +376,18 @@ public class DexBackedClassDef extends BaseTypeReference implements ClassDef {
                     null : hiddenApiRestrictionsReader.getRestrictionsForVirtualMethods();
 
             return new Iterable<DexBackedMethod>() {
-                final AnnotationsDirectory.AnnotationIterator methodAnnotationIterator =
-                        annotationsDirectory.getMethodAnnotationIterator();
-                final AnnotationsDirectory.AnnotationIterator parameterAnnotationIterator =
-                        annotationsDirectory.getParameterAnnotationIterator();
-
                 @Nonnull
                 @Override
                 public Iterator<DexBackedMethod> iterator() {
+                    final AnnotationsDirectory.AnnotationIterator methodAnnotationIterator =
+                            annotationsDirectory.getMethodAnnotationIterator();
+                    final AnnotationsDirectory.AnnotationIterator parameterAnnotationIterator =
+                            annotationsDirectory.getParameterAnnotationIterator();
+
                     return new VariableSizeLookaheadIterator<DexBackedMethod>(
                             dexFile.getDataBuffer(), methodsStartOffset) {
                         private int count;
-                        @Nullable private MethodReference previousMethod;
+                        @Nullable private DexBackedMethod previousMethod;
                         private int previousIndex;
 
                         @Nullable

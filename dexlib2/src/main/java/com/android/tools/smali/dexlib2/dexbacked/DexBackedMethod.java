@@ -71,6 +71,7 @@ public class DexBackedMethod extends BaseMethodReference implements Method {
     private int methodIdItemOffset;
     private int protoIdItemOffset;
     private int parametersOffset = -1;
+    private int cachedHashCode;
 
     public DexBackedMethod(@Nonnull DexBackedDexFile dexFile,
                            @Nonnull DexReader<? extends DexBuffer> reader,
@@ -277,5 +278,36 @@ public class DexBackedMethod extends BaseMethodReference implements Method {
         size += methodRef.getSize();
 
         return size;
+    }
+
+    @Override
+    public int hashCode() {
+        // The dex file can't change, so the hash code is calculated only once.
+        int hashCode = cachedHashCode;
+        if (hashCode == 0) {
+            hashCode = super.hashCode();
+            cachedHashCode = hashCode;
+        }
+        return hashCode;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+        if (o instanceof DexBackedMethod) {
+            DexBackedMethod other = (DexBackedMethod) o;
+            if (other.dexFile == dexFile && other.classDef == classDef) {
+                if (other.methodIndex == methodIndex) {
+                    return true;
+                }
+                int offset = getMethodIdItemOffset();
+                int otherOffset = other.getMethodIdItemOffset();
+                DexBuffer buffer = dexFile.getBuffer();
+                return buffer.readSmallUint(offset + MethodIdItem.NAME_OFFSET) ==
+                        buffer.readSmallUint(otherOffset + MethodIdItem.NAME_OFFSET) &&
+                        buffer.readUshort(offset + MethodIdItem.PROTO_OFFSET) ==
+                        buffer.readUshort(otherOffset + MethodIdItem.PROTO_OFFSET);
+            }
+        }
+        return super.equals(o);
     }
 }

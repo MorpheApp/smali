@@ -63,6 +63,7 @@ public class DexBackedField extends BaseFieldReference implements Field {
     private final int hiddenApiRestrictions;
 
     private int fieldIdItemOffset;
+    private int cachedHashCode;
 
     public DexBackedField(@Nonnull DexBackedDexFile dexFile,
                           @Nonnull DexReader<? extends DexBuffer> reader,
@@ -195,5 +196,36 @@ public class DexBackedField extends BaseFieldReference implements Field {
         size += fieldRef.getSize();
 
         return size;
+    }
+
+    @Override
+    public int hashCode() {
+        // The dex file can't change, so the hash code is calculated only once.
+        int hashCode = cachedHashCode;
+        if (hashCode == 0) {
+            hashCode = super.hashCode();
+            cachedHashCode = hashCode;
+        }
+        return hashCode;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+        if (o instanceof DexBackedField) {
+            DexBackedField other = (DexBackedField) o;
+            if (other.dexFile == dexFile && other.classDef == classDef) {
+                if (other.fieldIndex == fieldIndex) {
+                    return true;
+                }
+                int offset = getFieldIdItemOffset();
+                int otherOffset = other.getFieldIdItemOffset();
+                DexBuffer buffer = dexFile.getBuffer();
+                return buffer.readSmallUint(offset + FieldIdItem.NAME_OFFSET) ==
+                        buffer.readSmallUint(otherOffset + FieldIdItem.NAME_OFFSET) &&
+                        buffer.readUshort(offset + FieldIdItem.TYPE_OFFSET) ==
+                        buffer.readUshort(otherOffset + FieldIdItem.TYPE_OFFSET);
+            }
+        }
+        return super.equals(o);
     }
 }

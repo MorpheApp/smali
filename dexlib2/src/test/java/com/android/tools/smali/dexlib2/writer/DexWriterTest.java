@@ -42,6 +42,7 @@ import com.android.tools.smali.dexlib2.iface.Annotation;
 import com.android.tools.smali.dexlib2.iface.AnnotationElement;
 import com.android.tools.smali.dexlib2.iface.ClassDef;
 import com.android.tools.smali.dexlib2.iface.Field;
+import com.android.tools.smali.dexlib2.iface.Method;
 import com.android.tools.smali.dexlib2.iface.reference.FieldReference;
 import com.android.tools.smali.dexlib2.iface.reference.MethodProtoReference;
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
@@ -276,12 +277,16 @@ public class DexWriterTest {
 
     @Test
     public void testDexBackedReferenceEquality() throws IOException {
+        ImmutableAnnotation annotation = new ImmutableAnnotation(AnnotationVisibility.RUNTIME,
+                "Lorg/test/anno;", Collections.<ImmutableAnnotationElement>emptySet());
         ImmutableMethod method = new ImmutableMethod("La;", "foo",
-                Collections.singletonList(new ImmutableMethodParameter("I", null, null)), "V", 0, null, null, null);
+                Collections.singletonList(new ImmutableMethodParameter("I", ImmutableSet.of(annotation), null)),
+                "V", 0, ImmutableSet.of(annotation), null, null);
         ImmutableMethod otherMethod = new ImmutableMethod("La;", "foo", null, "V", 0, null, null, null);
         ImmutableField field = new ImmutableField("La;", "bar", "I", 0, null, null, null);
+        ImmutableField otherField = new ImmutableField("La;", "baz", "I", 0, null, null, null);
         DexBackedDexFile dexFile = writeClasses(Collections.singletonList(new ImmutableClassDef("La;", 0,
-                "Ljava/lang/Object;", null, null, null, Collections.singletonList(field),
+                "Ljava/lang/Object;", null, null, null, Arrays.asList(field, otherField),
                 Arrays.asList(method, otherMethod))));
 
         ImmutableMethodReference methodReference = new ImmutableMethodReference("La;", "foo",
@@ -314,5 +319,30 @@ public class DexWriterTest {
         Assert.assertEquals(dexField, fieldReference);
         Assert.assertEquals(fieldReference.hashCode(), dexField.hashCode());
         Assert.assertNotEquals(new ImmutableFieldReference("La;", "bar", "J"), dexField);
+
+        ClassDef dbClassDef = Iterables.getFirst(dexFile.getClasses(), null);
+        Assert.assertNotNull(dbClassDef);
+        List<Field> dbFieldsFirst = Lists.newArrayList(dbClassDef.getInstanceFields());
+        List<Field> dbFieldsSecond = Lists.newArrayList(dbClassDef.getInstanceFields());
+        Assert.assertEquals(2, dbFieldsFirst.size());
+        Assert.assertNotSame(dbFieldsFirst.get(0), dbFieldsSecond.get(0));
+        Assert.assertEquals(dbFieldsFirst, dbFieldsSecond);
+        Assert.assertEquals(dbFieldsFirst.get(0).hashCode(), dbFieldsSecond.get(0).hashCode());
+        Assert.assertNotEquals(dbFieldsFirst.get(0), dbFieldsFirst.get(1));
+        Assert.assertEquals(fieldReference, dbFieldsFirst.get(0));
+        Assert.assertEquals(dbFieldsFirst.get(0), fieldReference);
+
+        Iterable<? extends Method> virtualMethods = dbClassDef.getVirtualMethods();
+        List<Method> dbMethodsFirst = Lists.newArrayList(virtualMethods);
+        List<Method> dbMethodsSecond = Lists.newArrayList(virtualMethods);
+        Assert.assertEquals(2, dbMethodsFirst.size());
+        Assert.assertNotSame(dbMethodsFirst.get(0), dbMethodsSecond.get(0));
+        Assert.assertEquals(dbMethodsFirst, dbMethodsSecond);
+        Assert.assertEquals(dbMethodsFirst.get(1).hashCode(), dbMethodsSecond.get(1).hashCode());
+        Assert.assertNotEquals(dbMethodsFirst.get(0), dbMethodsFirst.get(1));
+        Assert.assertEquals(methodReference, dbMethodsFirst.get(1));
+        Assert.assertEquals(dbMethodsFirst.get(1), methodReference);
+        Assert.assertEquals(1, dbMethodsSecond.get(1).getAnnotations().size());
+        Assert.assertEquals(1, dbMethodsSecond.get(1).getParameters().get(0).getAnnotations().size());
     }
 }
