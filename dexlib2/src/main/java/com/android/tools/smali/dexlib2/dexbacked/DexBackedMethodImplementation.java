@@ -30,12 +30,12 @@
 
 package com.android.tools.smali.dexlib2.dexbacked;
 
+import com.android.tools.smali.dexlib2.Opcodes;
 import com.android.tools.smali.dexlib2.dexbacked.instruction.DexBackedInstruction;
 import com.android.tools.smali.dexlib2.dexbacked.raw.CodeItem;
 import com.android.tools.smali.dexlib2.dexbacked.util.DebugInfo;
 import com.android.tools.smali.dexlib2.dexbacked.util.FixedSizeList;
 import com.android.tools.smali.dexlib2.dexbacked.util.VariableSizeListIterator;
-import com.android.tools.smali.dexlib2.dexbacked.util.VariableSizeLookaheadIterator;
 import com.android.tools.smali.dexlib2.iface.MethodImplementation;
 import com.android.tools.smali.dexlib2.iface.debug.DebugItem;
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
@@ -49,6 +49,7 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 public class DexBackedMethodImplementation implements MethodImplementation {
     @Nonnull public final DexBackedDexFile dexFile;
@@ -84,26 +85,57 @@ public class DexBackedMethodImplementation implements MethodImplementation {
         return new Iterable<Instruction>() {
             @Override
             public Iterator<Instruction> iterator() {
-                return new VariableSizeLookaheadIterator<Instruction>(
-                        dexFile.getDataBuffer(), instructionsStartOffset) {
-                    @Override
-                    protected Instruction readNextItem(@Nonnull DexReader<? extends DexBuffer> reader) {
-                        if (reader.getOffset() >= endOffset) {
-                            return endOfData();
-                        }
-
-                        Instruction instruction = DexBackedInstruction.readFrom(dexFile, reader);
-
-                        // Does the instruction extend past the end of the method?
-                        int offset = reader.getOffset();
-                        if (offset > endOffset || offset < 0) {
-                            throw new ExceptionWithContext("The last instruction in method %s is truncated", method);
-                        }
-                        return instruction;
-                    }
-                };
+                return new InstructionIterator(instructionsStartOffset, endOffset);
             }
         };
+    }
+
+    /**
+     * Reads the instructions directly from the data buffer, without a {@link DexReader}.
+     */
+    private final class InstructionIterator implements Iterator<Instruction> {
+        @Nonnull private final Opcodes opcodes;
+        /** The difference between the start of an instruction and its offset in the data buffer. */
+        private final int instructionStartDelta;
+        private final int endOffset;
+        private int offset;
+
+        InstructionIterator(int startOffset, int endOffset) {
+            this.opcodes = dexFile.getOpcodes();
+            this.instructionStartDelta = dexFile.getDataBuffer().getBaseOffset() -
+                    dexFile.getBuffer().getBaseOffset() - dexFile.getBaseDataOffset();
+            this.endOffset = endOffset;
+            this.offset = startOffset;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return offset < endOffset;
+        }
+
+        @Override
+        public Instruction next() {
+            int instructionOffset = offset;
+            if (instructionOffset >= endOffset) {
+                throw new NoSuchElementException();
+            }
+
+            DexBackedInstruction instruction = DexBackedInstruction.readAt(dexFile, opcodes, instructionOffset,
+                    instructionOffset + instructionStartDelta);
+            int nextOffset = instructionOffset + DexBackedInstruction.getCodeUnits(instruction.opcode, instruction) * 2;
+
+            // Does the instruction extend past the end of the method?
+            if (nextOffset > endOffset || nextOffset < 0) {
+                throw new ExceptionWithContext("The last instruction in method %s is truncated", method);
+            }
+            offset = nextOffset;
+            return instruction;
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException();
+        }
     }
 
     /**

@@ -303,57 +303,13 @@ public class DexBackedClassDef extends BaseTypeReference implements ClassDef {
     @Nonnull
     public Iterable<? extends DexBackedMethod> getDirectMethods(final boolean skipDuplicates) {
         if (directMethodCount > 0) {
-            DexReader<? extends DexBuffer> reader = dexFile.getDataBuffer().readerAt(getDirectMethodsOffset());
-
-            final AnnotationsDirectory annotationsDirectory = getAnnotationsDirectory();
-            final int methodsStartOffset = reader.getOffset();
-
-            Iterator<Integer> hiddenApiRestrictionIterator = hiddenApiRestrictionsReader == null ?
-                    null : hiddenApiRestrictionsReader.getRestrictionsForDirectMethods();
+            final int methodsStartOffset = getDirectMethodsOffset();
 
             return new Iterable<DexBackedMethod>() {
                 @Nonnull
                 @Override
                 public Iterator<DexBackedMethod> iterator() {
-                    final AnnotationsDirectory.AnnotationIterator methodAnnotationIterator =
-                            annotationsDirectory.getMethodAnnotationIterator();
-                    final AnnotationsDirectory.AnnotationIterator parameterAnnotationIterator =
-                            annotationsDirectory.getParameterAnnotationIterator();
-
-                    return new VariableSizeLookaheadIterator<DexBackedMethod>(
-                            dexFile.getDataBuffer(), methodsStartOffset) {
-                        private int count;
-                        @Nullable private DexBackedMethod previousMethod;
-                        private int previousIndex;
-
-                        @Nullable
-                        @Override
-                        protected DexBackedMethod readNextItem(@Nonnull DexReader<? extends DexBuffer> reader) {
-                            while (true) {
-                                if (++count > directMethodCount) {
-                                    virtualMethodsOffset = reader.getOffset();
-                                    return endOfData();
-                                }
-
-                                int hiddenApiRestrictions = NO_HIDDEN_API_RESTRICTIONS;
-                                if (hiddenApiRestrictionIterator != null) {
-                                    hiddenApiRestrictions = hiddenApiRestrictionIterator.next();
-                                }
-
-                                DexBackedMethod item = new DexBackedMethod(dexFile, reader, DexBackedClassDef.this,
-                                        previousIndex, methodAnnotationIterator, parameterAnnotationIterator,
-                                        hiddenApiRestrictions);
-                                previousIndex = item.methodIndex;
-
-                                if (skipDuplicates && previousMethod != null && previousMethod.equals(item)) {
-                                    continue;
-                                }
-                                previousMethod = item;
-
-                                return item;
-                            }
-                        }
-                    };
+                    return new MethodIterator(methodsStartOffset, true, false, skipDuplicates);
                 }
             };
         } else {
@@ -367,60 +323,98 @@ public class DexBackedClassDef extends BaseTypeReference implements ClassDef {
     @Nonnull
     public Iterable<? extends DexBackedMethod> getVirtualMethods(final boolean skipDuplicates) {
         if (virtualMethodCount > 0) {
-            DexReader<? extends DexBuffer> reader = dexFile.getDataBuffer().readerAt(getVirtualMethodsOffset());
-
-            final AnnotationsDirectory annotationsDirectory = getAnnotationsDirectory();
-            final int methodsStartOffset = reader.getOffset();
-
-            Iterator<Integer> hiddenApiRestrictionIterator = hiddenApiRestrictionsReader == null ?
-                    null : hiddenApiRestrictionsReader.getRestrictionsForVirtualMethods();
+            final int methodsStartOffset = getVirtualMethodsOffset();
 
             return new Iterable<DexBackedMethod>() {
                 @Nonnull
                 @Override
                 public Iterator<DexBackedMethod> iterator() {
-                    final AnnotationsDirectory.AnnotationIterator methodAnnotationIterator =
-                            annotationsDirectory.getMethodAnnotationIterator();
-                    final AnnotationsDirectory.AnnotationIterator parameterAnnotationIterator =
-                            annotationsDirectory.getParameterAnnotationIterator();
-
-                    return new VariableSizeLookaheadIterator<DexBackedMethod>(
-                            dexFile.getDataBuffer(), methodsStartOffset) {
-                        private int count;
-                        @Nullable private DexBackedMethod previousMethod;
-                        private int previousIndex;
-
-                        @Nullable
-                        @Override
-                        protected DexBackedMethod readNextItem(@Nonnull DexReader<? extends DexBuffer> reader) {
-                            while (true) {
-                                if (++count > virtualMethodCount) {
-                                    return endOfData();
-                                }
-
-                                int hiddenApiRestrictions = NO_HIDDEN_API_RESTRICTIONS;
-                                if (hiddenApiRestrictionIterator != null) {
-                                    hiddenApiRestrictions = hiddenApiRestrictionIterator.next();
-                                }
-
-                                DexBackedMethod item = new DexBackedMethod(dexFile, reader, DexBackedClassDef.this,
-                                        previousIndex, methodAnnotationIterator, parameterAnnotationIterator,
-                                        hiddenApiRestrictions);
-                                previousIndex = item.methodIndex;
-
-                                if (skipDuplicates && previousMethod != null && previousMethod.equals(item)) {
-                                    continue;
-                                }
-                                previousMethod = item;
-
-                                return item;
-                            }
-                        }
-                    };
+                    return new MethodIterator(methodsStartOffset, false, false, skipDuplicates);
                 }
             };
         } else {
             return Collections.emptySet();
+        }
+    }
+
+    /**
+     * Iterates over the direct methods, the virtual methods, or both. The virtual methods directly follow the
+     * direct methods in the class data, so both can be read with a single iterator.
+     */
+    private final class MethodIterator extends VariableSizeLookaheadIterator<DexBackedMethod> {
+        private final boolean skipDuplicates;
+        private final boolean includeVirtualMethods;
+        private boolean readingDirectMethods;
+        private int remaining;
+        @Nullable private Iterator<Integer> hiddenApiRestrictionIterator;
+        @Nullable private DexBackedMethod previousMethod;
+        private int previousIndex;
+
+        /**
+         * @param startOffset The offset of the first direct method if directMethods is true, otherwise the offset
+         *                    of the first virtual method
+         * @param directMethods Whether to start with the direct methods
+         * @param includeVirtualMethods Whether to continue with the virtual methods after the direct methods
+         * @param skipDuplicates Whether to skip consecutive duplicate methods of the same list
+         */
+        MethodIterator(int startOffset, boolean directMethods, boolean includeVirtualMethods,
+                       boolean skipDuplicates) {
+            super(dexFile.getDataBuffer(), startOffset);
+            this.skipDuplicates = skipDuplicates;
+            this.includeVirtualMethods = includeVirtualMethods;
+            this.readingDirectMethods = directMethods;
+            if (directMethods) {
+                remaining = directMethodCount;
+                if (hiddenApiRestrictionsReader != null) {
+                    hiddenApiRestrictionIterator = hiddenApiRestrictionsReader.getRestrictionsForDirectMethods();
+                }
+            } else {
+                remaining = virtualMethodCount;
+                if (hiddenApiRestrictionsReader != null) {
+                    hiddenApiRestrictionIterator = hiddenApiRestrictionsReader.getRestrictionsForVirtualMethods();
+                }
+            }
+        }
+
+        @Nullable
+        @Override
+        protected DexBackedMethod readNextItem(@Nonnull DexReader<? extends DexBuffer> reader) {
+            while (true) {
+                if (remaining == 0) {
+                    if (!readingDirectMethods) {
+                        return endOfData();
+                    }
+                    virtualMethodsOffset = reader.getOffset();
+                    if (!includeVirtualMethods || virtualMethodCount == 0) {
+                        return endOfData();
+                    }
+
+                    readingDirectMethods = false;
+                    remaining = virtualMethodCount;
+                    previousMethod = null;
+                    previousIndex = 0;
+                    if (hiddenApiRestrictionsReader != null) {
+                        hiddenApiRestrictionIterator = hiddenApiRestrictionsReader.getRestrictionsForVirtualMethods();
+                    }
+                }
+                remaining--;
+
+                int hiddenApiRestrictions = NO_HIDDEN_API_RESTRICTIONS;
+                if (hiddenApiRestrictionIterator != null) {
+                    hiddenApiRestrictions = hiddenApiRestrictionIterator.next();
+                }
+
+                DexBackedMethod item = new DexBackedMethod(dexFile, reader, DexBackedClassDef.this,
+                        previousIndex, hiddenApiRestrictions);
+                previousIndex = item.methodIndex;
+
+                if (skipDuplicates && previousMethod != null && previousMethod.equals(item)) {
+                    continue;
+                }
+                previousMethod = item;
+
+                return item;
+            }
         }
     }
 
@@ -433,10 +427,22 @@ public class DexBackedClassDef extends BaseTypeReference implements ClassDef {
     @Nonnull
     @Override
     public Iterable<? extends DexBackedMethod> getMethods() {
-        return new ChainedIterable(getDirectMethods(), getVirtualMethods());
+        if (directMethodCount == 0 && virtualMethodCount == 0) {
+            return Collections.emptySet();
+        }
+        final int methodsStartOffset = getDirectMethodsOffset();
+
+        return new Iterable<DexBackedMethod>() {
+            @Nonnull
+            @Override
+            public Iterator<DexBackedMethod> iterator() {
+                return new MethodIterator(methodsStartOffset, true, true, true);
+            }
+        };
     }
 
-    private AnnotationsDirectory getAnnotationsDirectory() {
+    @Nonnull
+    AnnotationsDirectory getAnnotationsDirectory() {
         if (annotationsDirectory == null) {
             int annotationsDirectoryOffset =
                     dexFile.getBuffer().readSmallUint(classDefOffset + ClassDefItem.ANNOTATIONS_OFFSET);

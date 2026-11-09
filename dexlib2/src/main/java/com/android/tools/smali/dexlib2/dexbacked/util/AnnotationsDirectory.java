@@ -32,6 +32,7 @@ package com.android.tools.smali.dexlib2.dexbacked.util;
 
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedAnnotation;
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile;
+import com.android.tools.smali.dexlib2.dexbacked.DexBuffer;
 
 import javax.annotation.Nonnull;
 
@@ -53,6 +54,23 @@ public abstract class AnnotationsDirectory {
     @Nonnull public abstract AnnotationIterator getFieldAnnotationIterator();
     @Nonnull public abstract AnnotationIterator getMethodAnnotationIterator();
     @Nonnull public abstract AnnotationIterator getParameterAnnotationIterator();
+
+    /**
+     * Finds the annotations of a single method, without iterating over the annotations of the methods before it.
+     *
+     * @param methodIndex The method index to search for
+     * @return The annotation set offset of the method, or 0 if the method has no annotations.
+     */
+    public int getMethodAnnotationSetOffset(int methodIndex) { return 0; }
+
+    /**
+     * Finds the parameter annotations of a single method, without iterating over the parameter annotations of the
+     * methods before it.
+     *
+     * @param methodIndex The method index to search for
+     * @return The annotation set ref list offset of the method, or 0 if the method has no parameter annotations.
+     */
+    public int getParameterAnnotationSetListOffset(int methodIndex) { return 0; }
 
     @Nonnull
     public static AnnotationsDirectory newOrEmpty(@Nonnull DexBackedDexFile dexFile,
@@ -205,6 +223,58 @@ public abstract class AnnotationsDirectory {
                     fieldCount * FIELD_ANNOTATION_SIZE +
                     methodCount * METHOD_ANNOTATION_SIZE;
             return new AnnotationIteratorImpl(parameterAnnotationsOffset, parameterAnnotationCount);
+        }
+
+        @Override
+        public int getMethodAnnotationSetOffset(int methodIndex) {
+            int methodCount = getMethodAnnotationCount();
+            if (methodCount == 0) {
+                return 0;
+            }
+            int methodAnnotationsOffset = directoryOffset + ANNOTATIONS_START_OFFSET +
+                    getFieldAnnotationCount() * FIELD_ANNOTATION_SIZE;
+            return findAnnotationOffset(methodAnnotationsOffset, methodCount, methodIndex);
+        }
+
+        @Override
+        public int getParameterAnnotationSetListOffset(int methodIndex) {
+            int parameterAnnotationCount = getParameterAnnotationCount();
+            if (parameterAnnotationCount == 0) {
+                return 0;
+            }
+            int parameterAnnotationsOffset = directoryOffset + ANNOTATIONS_START_OFFSET +
+                    getFieldAnnotationCount() * FIELD_ANNOTATION_SIZE +
+                    getMethodAnnotationCount() * METHOD_ANNOTATION_SIZE;
+            return findAnnotationOffset(parameterAnnotationsOffset, parameterAnnotationCount, methodIndex);
+        }
+
+        /**
+         * Binary search of a method_annotation or parameter_annotation list, which are sorted by method index.
+         * Both structures are 8 bytes: the method index followed by the offset.
+         *
+         * @return The offset of the first item with the index, or 0 if there is none.
+         */
+        private int findAnnotationOffset(int listOffset, int size, int itemIndex) {
+            DexBuffer dataBuffer = dexFile.getDataBuffer();
+            int low = 0;
+            int high = size - 1;
+            int found = -1;
+            while (low <= high) {
+                int mid = (low + high) >>> 1;
+                int midIndex = dataBuffer.readSmallUint(listOffset + mid * 8);
+                if (midIndex < itemIndex) {
+                    low = mid + 1;
+                } else {
+                    if (midIndex == itemIndex) {
+                        found = mid;
+                    }
+                    high = mid - 1;
+                }
+            }
+            if (found < 0) {
+                return 0;
+            }
+            return dataBuffer.readSmallUint(listOffset + found * 8 + 4);
         }
 
         private class AnnotationIteratorImpl implements AnnotationIterator {

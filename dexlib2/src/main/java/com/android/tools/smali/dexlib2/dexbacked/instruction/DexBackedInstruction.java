@@ -31,6 +31,7 @@
 package com.android.tools.smali.dexlib2.dexbacked.instruction;
 
 import com.android.tools.smali.dexlib2.Opcode;
+import com.android.tools.smali.dexlib2.Opcodes;
 import com.android.tools.smali.dexlib2.dexbacked.DexBuffer;
 import com.android.tools.smali.util.ExceptionWithContext;
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile;
@@ -69,8 +70,39 @@ public abstract class DexBackedInstruction implements Instruction {
         Instruction instruction = buildInstruction(dexFile, opcode,
                 reader.getOffset() + reader.dexBuf.getBaseOffset() -
                         dexFile.getBuffer().getBaseOffset() - dexFile.getBaseDataOffset());
-        reader.moveRelative(instruction.getCodeUnits()*2);
+        reader.moveRelative(getCodeUnits(opcode, instruction) * 2);
         return instruction;
+    }
+
+    /**
+     * Reads the instruction at the given offset of the data buffer, the same as {@link #readFrom} would read.
+     *
+     * @param opcodes The opcodes of the dex file
+     * @param dataOffset The offset of the instruction in the data buffer of the dex file
+     * @param instructionStart The start of the instruction, as given to the instruction constructors
+     */
+    @Nonnull
+    public static DexBackedInstruction readAt(@Nonnull DexBackedDexFile dexFile, @Nonnull Opcodes opcodes,
+                                              int dataOffset, int instructionStart) {
+        DexBuffer dataBuffer = dexFile.getDataBuffer();
+        int opcodeValue = dataBuffer.readUbyte(dataOffset);
+
+        if (opcodeValue == 0) {
+            opcodeValue = dataBuffer.readUshort(dataOffset);
+        }
+
+        return buildInstruction(dexFile, opcodes.getOpcodeByValue(opcodeValue), instructionStart);
+    }
+
+    /**
+     * Returns the code units of an instruction. Only payload and unknown instructions vary in size,
+     * so this avoids calling {@link Instruction#getCodeUnits()} on many different instruction classes.
+     */
+    public static int getCodeUnits(@Nullable Opcode opcode, @Nonnull Instruction instruction) {
+        if (opcode != null && !opcode.format.isPayloadFormat) {
+            return opcode.format.size / 2;
+        }
+        return instruction.getCodeUnits();
     }
     
     /**

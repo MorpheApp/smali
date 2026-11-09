@@ -61,8 +61,10 @@ public class DexBackedMethod extends BaseMethodReference implements Method {
     public final int accessFlags;
 
     private final int codeOffset;
-    private final int parameterAnnotationSetListOffset;
-    private final int methodAnnotationSetOffset;
+    /** The annotation offsets are looked up when first needed if they are {@link #UNKNOWN_OFFSET}. */
+    private static final int UNKNOWN_OFFSET = -1;
+    private int parameterAnnotationSetListOffset;
+    private int methodAnnotationSetOffset;
     private final int hiddenApiRestrictions;
 
     public final int methodIndex;
@@ -73,6 +75,10 @@ public class DexBackedMethod extends BaseMethodReference implements Method {
     private int parametersOffset = -1;
     private int cachedHashCode;
 
+    /**
+     * Creates a method that looks up its annotations in the annotations directory of the class when they are
+     * first needed, instead of seeking annotation iterators for each method while iterating.
+     */
     public DexBackedMethod(@Nonnull DexBackedDexFile dexFile,
                            @Nonnull DexReader<? extends DexBuffer> reader,
                            @Nonnull DexBackedClassDef classDef,
@@ -90,8 +96,8 @@ public class DexBackedMethod extends BaseMethodReference implements Method {
         this.codeOffset = reader.readSmallUleb128();
         this.hiddenApiRestrictions = hiddenApiRestrictions;
 
-        this.methodAnnotationSetOffset = 0;
-        this.parameterAnnotationSetListOffset = 0;
+        this.methodAnnotationSetOffset = UNKNOWN_OFFSET;
+        this.parameterAnnotationSetListOffset = UNKNOWN_OFFSET;
     }
 
     public DexBackedMethod(@Nonnull DexBackedDexFile dexFile,
@@ -159,7 +165,7 @@ public class DexBackedMethod extends BaseMethodReference implements Method {
 
     @Nonnull
     public List<? extends Set<? extends DexBackedAnnotation>> getParameterAnnotations() {
-        return AnnotationsDirectory.getParameterAnnotations(dexFile, parameterAnnotationSetListOffset);
+        return AnnotationsDirectory.getParameterAnnotations(dexFile, getParameterAnnotationSetListOffset());
     }
 
     @Nonnull
@@ -193,7 +199,7 @@ public class DexBackedMethod extends BaseMethodReference implements Method {
     @Nonnull
     @Override
     public Set<? extends Annotation> getAnnotations() {
-        return AnnotationsDirectory.getAnnotations(dexFile, methodAnnotationSetOffset);
+        return AnnotationsDirectory.getAnnotations(dexFile, getMethodAnnotationSetOffset());
     }
 
     @Nonnull
@@ -213,6 +219,24 @@ public class DexBackedMethod extends BaseMethodReference implements Method {
             return dexFile.createMethodImplementation(dexFile, this, codeOffset);
         }
         return null;
+    }
+
+    private int getMethodAnnotationSetOffset() {
+        int offset = methodAnnotationSetOffset;
+        if (offset == UNKNOWN_OFFSET) {
+            offset = classDef.getAnnotationsDirectory().getMethodAnnotationSetOffset(methodIndex);
+            methodAnnotationSetOffset = offset;
+        }
+        return offset;
+    }
+
+    private int getParameterAnnotationSetListOffset() {
+        int offset = parameterAnnotationSetListOffset;
+        if (offset == UNKNOWN_OFFSET) {
+            offset = classDef.getAnnotationsDirectory().getParameterAnnotationSetListOffset(methodIndex);
+            parameterAnnotationSetListOffset = offset;
+        }
+        return offset;
     }
 
     private int getMethodIdItemOffset() {

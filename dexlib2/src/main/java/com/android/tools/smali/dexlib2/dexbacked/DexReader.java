@@ -45,12 +45,15 @@ public class DexReader<T extends DexBuffer> {
     @Nonnull public final T dexBuf;
     private final ByteBuffer buf;
     private final int baseOffset;
+    /** The buffer position up to which 4 bytes can be read at once. */
+    private final int wordReadLimit;
     private int offset;
 
     public DexReader(@Nonnull T dexBuf, int offset) {
         this.dexBuf = dexBuf;
         this.buf = dexBuf.getBuf();
         this.baseOffset = dexBuf.getBaseOffset();
+        this.wordReadLimit = buf.limit() - 4;
         this.offset = offset;
     }
 
@@ -131,6 +134,35 @@ public class DexReader<T extends DexBuffer> {
     }
 
     private int readUleb128(boolean allowLarge) {
+        int end = baseOffset + offset;
+
+        // Most values are 1 to 4 bytes. Read 4 bytes at once (the buffer is little endian), instead of
+        // reading each byte separately with its own bounds check. The rest is in a separate method,
+        // so this method stays small enough to be inlined.
+        if (end >= 0 && end <= wordReadLimit) {
+            int word = buf.getInt(end);
+            if ((word & 0x80) == 0) {
+                offset++;
+                return word & 0x7f;
+            }
+            if ((word & 0x8000) == 0) {
+                offset += 2;
+                return (word & 0x7f) | ((word >> 1) & 0x3f80);
+            }
+            if ((word & 0x800000) == 0) {
+                offset += 3;
+                return (word & 0x7f) | ((word >> 1) & 0x3f80) | ((word >> 2) & 0x1fc000);
+            }
+            if (word >= 0) {
+                offset += 4;
+                return (word & 0x7f) | ((word >> 1) & 0x3f80) | ((word >> 2) & 0x1fc000) |
+                        ((word >> 3) & 0xfe00000);
+            }
+        }
+        return readUleb128Bytes(allowLarge);
+    }
+
+    private int readUleb128Bytes(boolean allowLarge) {
         int end = baseOffset + offset;
         int currentByteValue;
         int result;
@@ -284,6 +316,31 @@ public class DexReader<T extends DexBuffer> {
     }
 
     public void skipUleb128() {
+        int end = baseOffset + offset;
+
+        if (end >= 0 && end <= wordReadLimit) {
+            int word = buf.getInt(end);
+            if ((word & 0x80) == 0) {
+                offset++;
+                return;
+            }
+            if ((word & 0x8000) == 0) {
+                offset += 2;
+                return;
+            }
+            if ((word & 0x800000) == 0) {
+                offset += 3;
+                return;
+            }
+            if (word >= 0) {
+                offset += 4;
+                return;
+            }
+        }
+        skipUleb128Bytes();
+    }
+
+    private void skipUleb128Bytes() {
         int end = baseOffset + offset;
         byte currentByteValue;
 

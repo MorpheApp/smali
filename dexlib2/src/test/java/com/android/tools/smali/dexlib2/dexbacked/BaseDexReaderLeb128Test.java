@@ -245,16 +245,35 @@ public class BaseDexReaderLeb128Test {
     }
 
     private void performTest(int expectedValue, byte[] buf, int expectedLength) {
+        performTest(expectedValue, buf, 0, expectedLength);
+
+        // Values with at least 4 bytes after their start are read 4 bytes at once. Test both paths,
+        // with bytes after the value that have the continuation bit set.
+        for (int start = 0; start < 3; start++) {
+            byte[] padded = new byte[start + buf.length + 4];
+            System.arraycopy(buf, 0, padded, start, buf.length);
+            for (int i = start + buf.length; i < padded.length; i++) {
+                padded[i] = (byte)0xff;
+            }
+            performTest(expectedValue, padded, start, expectedLength);
+        }
+    }
+
+    private void performTest(int expectedValue, byte[] buf, int start, int expectedLength) {
         DexBuffer dexBuf = new DexBuffer(buf);
-        DexReader<? extends DexBuffer> reader = dexBuf.readerAt(0);
+        DexReader<? extends DexBuffer> reader = dexBuf.readerAt(start);
         Assert.assertEquals(expectedValue, reader.readSmallUleb128());
-        Assert.assertEquals(expectedLength, reader.getOffset());
+        Assert.assertEquals(start + expectedLength, reader.getOffset());
 
-        reader = dexBuf.readerAt(0);
+        reader = dexBuf.readerAt(start);
+        Assert.assertEquals(expectedValue, reader.readLargeUleb128());
+        Assert.assertEquals(start + expectedLength, reader.getOffset());
+
+        reader = dexBuf.readerAt(start);
         reader.skipUleb128();
-        Assert.assertEquals(expectedLength, reader.getOffset());
+        Assert.assertEquals(start + expectedLength, reader.getOffset());
 
-        reader = dexBuf.readerAt(0);
+        reader = dexBuf.readerAt(start);
         Assert.assertEquals(expectedLength, reader.peekSmallUleb128Size());
     }
 
